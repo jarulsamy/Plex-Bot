@@ -1,3 +1,7 @@
+general:
+  # Options: debug, info, warning, error, critical
+  log_level: "info"
+
 discord:
   prefix: "?"
   token: "<BOT_TOKEN>"

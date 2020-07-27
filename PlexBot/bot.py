@@ -7,6 +7,10 @@ from discord.ext.commands import command
 from fuzzywuzzy import fuzz
 from plexapi.server import PlexServer
 
+import logging
+
+logger = logging.getLogger("PlexBot")
+
 
 class General(commands.Cog):
     def __init__(self, bot):
@@ -16,6 +20,7 @@ class General(commands.Cog):
     async def kill(self, ctx):
         await ctx.send(f"Stopping upon the request of {ctx.author.mention}")
         await self.bot.close()
+        logger.info(f"Stopping upon the request of {ctx.author.mention}")
 
 
 class Plex(commands.Cog):
@@ -29,7 +34,11 @@ class Plex(commands.Cog):
         self.music = self.pms.library.section(self.library_name)
 
         self.vc = None
+        self.current_track = None
         self.play_queue = Queue()
+
+        logger.info("Started bot successfully")
+
         # self.callback_ctx = None
 
     def _search_tracks(self, title):
@@ -51,10 +60,14 @@ class Plex(commands.Cog):
         await ctx.send(f"Hello {member}")
 
     async def _after_callback(self, error=None):
-        track = self.play_queue.get()
-        audio_stream = FFmpegPCMAudio(track.getStreamURL())
-        self.vc.play(audio_stream)
-        await self.callback_ctx.send(f"Playing {track.title}")
+        if self.play_queue.empty():
+            self.current_track = None
+        else:
+            track = self.play_queue.get()
+            audio_stream = FFmpegPCMAudio(track.getStreamURL())
+            self.vc.play(audio_stream)
+            self.current_track = track
+            await self.callback_ctx.send(f"Playing {track.title}")
 
     @command()
     async def play(self, ctx, *args):
@@ -67,16 +80,21 @@ class Plex(commands.Cog):
                 return
             if not self.vc:
                 self.vc = await ctx.author.voice.channel.connect()
+                logger.debug("Connected to vc")
 
             if self.vc.is_playing():
                 self.play_queue.put(track)
                 self.callback_ctx = ctx
                 await ctx.send(f"Added {track.title} to queue.")
+                logger.debug(f"Added {track.title} to queue.")
             else:
                 audio_stream = FFmpegPCMAudio(track_url)
                 self.vc.play(audio_stream, after=self._after_callback)
+                self.current_track = track
+                logger.debug(f"Playing {track.title}")
                 await ctx.send(f"Playing {track.title}")
         else:
+            logger.debug(f"{title} was not found.")
             await ctx.send("Song not found!")
 
     @command()
@@ -85,7 +103,6 @@ class Plex(commands.Cog):
             self.vc.stop()
             await self.vc.disconnect()
             self.vc = None
-
             await ctx.send("Stopped")
 
     @command()
@@ -106,3 +123,7 @@ class Plex(commands.Cog):
             await self.vc.stop()
             if not self.play_queue.empty():
                 await self._after_callback()
+
+    @command()
+    async def np(self, ctx):
+        await ctx.send(f"Currently playing: {self.current_track.title}")
