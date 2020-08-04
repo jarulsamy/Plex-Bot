@@ -1,8 +1,9 @@
-import yaml
-from pathlib import Path
-from typing import Dict
 import logging
 import sys
+from pathlib import Path
+from typing import Dict
+
+import yaml
 
 FORMAT = "%(asctime)s %(levelname)s: [%(filename)s:%(lineno)s - %(funcName)20s() ] %(message)s"
 
