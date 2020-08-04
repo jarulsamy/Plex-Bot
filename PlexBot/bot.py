@@ -9,6 +9,11 @@ from fuzzywuzzy import fuzz
 from plexapi.exceptions import Unauthorized
 from plexapi.server import PlexServer
 
+import datetime
+from urllib.request import urlopen
+
+import io
+
 logger = logging.getLogger("PlexBot")
 
 
@@ -73,12 +78,45 @@ class Plex(commands.Cog):
             self.current_track = track
             logger.debug(f"Started playing next song in queue: {track.title}")
             self.vc.play(audio_stream)
-            await self.callback_ctx.send(f"Playing {track.title}")
+            embed, f = self._build_play_embed(self.current_track)
+            await self.callback_ctx.send(embed=embed, file=f)
+
+    def _build_play_embed(self, track):
+        """Creates a pretty embed card.
+
+
+
+        """
+
+        # Grab the relevant thumbnail
+        img_stream = urlopen(track.thumbUrl)
+        img = io.BytesIO(img_stream.read())
+
+        # Attach to discord embed
+        f = discord.File(img, filename="image0.png")
+        descrip = f"{track.album().title} - {track.artist().title}"
+
+        logger.debug(f"URL: {track.thumbUrl}")
+        logger.debug(f"Description: {descrip}")
+
+        # Build the actual embed
+        embed = discord.Embed(
+            title=track.title, description=descrip, colour=discord.Color.red()
+        )
+        dur_seconds = track.duration
+        dur_str = str(datetime.timedelta(seconds=dur_seconds))
+        dur_str = f"Duration: {dur_str}"
+
+        embed.set_footer(text=dur_str)
+        embed.set_thumbnail(url="attachment://image0.png")
+        embed.set_author(name="Plex")
+
+        return embed, f
 
     @command()
     async def play(self, ctx, *args):
         if not len(args):
-            await ctx.send(f"Usage: {BOT_PREFIX}play TITLE_OF_SONG")
+            await ctx.send("Usage: play TITLE_OF_SONG")
             return
 
         title = " ".join(args)
@@ -102,7 +140,8 @@ class Plex(commands.Cog):
                 self.vc.play(audio_stream, after=self._after_callback)
                 self.current_track = track
                 logger.debug(f"Playing {track.title}")
-                await ctx.send(f"Playing {track.title}")
+                embed, f = self._build_play_embed(self.current_track)
+                await ctx.send(embed=embed, file=f)
         else:
             logger.debug(f"{title} was not found.")
             await ctx.send(f"{title} was not found.")
@@ -118,13 +157,13 @@ class Plex(commands.Cog):
     @command()
     async def pause(self, ctx):
         if self.vc:
-            await self.vc.pause()
+            self.vc.pause()
             await ctx.send("Paused")
 
     @command()
     async def resume(self, ctx):
         if self.vc:
-            await self.vc.resume()
+            self.vc.resume()
             await ctx.send("Resumed")
 
     @command()
@@ -137,3 +176,15 @@ class Plex(commands.Cog):
     @command()
     async def np(self, ctx):
         await ctx.send(f"Currently playing: {self.current_track.title}")
+
+    @command()
+    async def queue(self, ctx):
+        message = ""
+        for i in self.play_queue:
+            message += self.play_queue.title + "\n"
+        await ctx.send(f"Play Queue: {message}")
+
+    @command()
+    async def clear(self, ctx):
+        self.play_queue = Queue()
+        await ctx.send("Queue cleared.")
