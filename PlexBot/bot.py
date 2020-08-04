@@ -1,3 +1,4 @@
+import logging
 from queue import Queue
 
 import discord
@@ -5,7 +6,10 @@ from discord import FFmpegPCMAudio
 from discord.ext import commands
 from discord.ext.commands import command
 from fuzzywuzzy import fuzz
+from plexapi.exceptions import Unauthorized
 from plexapi.server import PlexServer
+
+logger = logging.getLogger("PlexBot")
 
 
 class General(commands.Cog):
@@ -16,6 +20,7 @@ class General(commands.Cog):
     async def kill(self, ctx):
         await ctx.send(f"Stopping upon the request of {ctx.author.mention}")
         await self.bot.close()
+        logger.info(f"Stopping upon the request of {ctx.author.mention}")
 
 
 class Plex(commands.Cog):
@@ -25,12 +30,19 @@ class Plex(commands.Cog):
         self.plex_token = plex_token
         self.library_name = lib_name
 
-        self.pms = PlexServer(self.base_url, self.plex_token)
+        try:
+            self.pms = PlexServer(self.base_url, self.plex_token)
+        except Unauthorized:
+            logger.fatal("Invalid Plex token, stopping...")
+            raise Unauthorized("Invalid Plex token")
+
         self.music = self.pms.library.section(self.library_name)
 
         self.vc = None
+        self.current_track = None
         self.play_queue = Queue()
-        # self.callback_ctx = None
+
+        logger.info("Started bot successfully")
 
     def _search_tracks(self, title):
         tracks = self.music.searchTracks()
@@ -51,13 +63,24 @@ class Plex(commands.Cog):
         await ctx.send(f"Hello {member}")
 
     async def _after_callback(self, error=None):
-        track = self.play_queue.get()
-        audio_stream = FFmpegPCMAudio(track.getStreamURL())
-        self.vc.play(audio_stream)
-        await self.callback_ctx.send(f"Playing {track.title}")
+        logger.debug("After callbacked")
+        if self.play_queue.empty():
+            self.current_track = None
+            logger.debug("No tracks left in queue, returning")
+        else:
+            track = self.play_queue.get()
+            audio_stream = FFmpegPCMAudio(track.getStreamURL())
+            self.current_track = track
+            logger.debug(f"Started playing next song in queue: {track.title}")
+            self.vc.play(audio_stream)
+            await self.callback_ctx.send(f"Playing {track.title}")
 
     @command()
     async def play(self, ctx, *args):
+        if not len(args):
+            await ctx.send(f"Usage: {BOT_PREFIX}play TITLE_OF_SONG")
+            return
+
         title = " ".join(args)
         track = self._search_tracks(title)
         if track:
@@ -67,17 +90,22 @@ class Plex(commands.Cog):
                 return
             if not self.vc:
                 self.vc = await ctx.author.voice.channel.connect()
+                logger.debug("Connected to vc.")
 
             if self.vc.is_playing():
                 self.play_queue.put(track)
                 self.callback_ctx = ctx
                 await ctx.send(f"Added {track.title} to queue.")
+                logger.debug(f"Added {track.title} to queue.")
             else:
                 audio_stream = FFmpegPCMAudio(track_url)
                 self.vc.play(audio_stream, after=self._after_callback)
+                self.current_track = track
+                logger.debug(f"Playing {track.title}")
                 await ctx.send(f"Playing {track.title}")
         else:
-            await ctx.send("Song not found!")
+            logger.debug(f"{title} was not found.")
+            await ctx.send(f"{title} was not found.")
 
     @command()
     async def stop(self, ctx):
@@ -85,7 +113,6 @@ class Plex(commands.Cog):
             self.vc.stop()
             await self.vc.disconnect()
             self.vc = None
-
             await ctx.send("Stopped")
 
     @command()
@@ -102,7 +129,11 @@ class Plex(commands.Cog):
 
     @command()
     async def skip(self, ctx):
+        logger.debug("Skip")
         if self.vc:
-            await self.vc.stop()
-            if not self.play_queue.empty():
-                await self._after_callback()
+            self.vc.stop()
+            await self._after_callback()
+
+    @command()
+    async def np(self, ctx):
+        await ctx.send(f"Currently playing: {self.current_track.title}")
