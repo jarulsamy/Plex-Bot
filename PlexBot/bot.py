@@ -72,6 +72,10 @@ class Plex(commands.Cog):
         track_url = self.current_track.getStreamURL()
 
         audio_stream = FFmpegPCMAudio(track_url)
+
+        while self.vc.is_playing():
+            asyncio.sleep(10)
+
         self.vc.play(audio_stream, after=self._toggle_next)
 
         logger.debug(f"Playing {self.current_track.title}")
@@ -159,7 +163,7 @@ class Plex(commands.Cog):
             self.vc.stop()
             await self.vc.disconnect()
             self.vc = None
-            await ctx.send(":stop: Stopped")
+            await ctx.send(":stop_button: Stopped")
 
     @command()
     async def pause(self, ctx):
