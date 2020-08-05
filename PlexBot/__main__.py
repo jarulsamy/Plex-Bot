@@ -1,11 +1,11 @@
+import logging
+
 from discord.ext.commands import Bot
 
+from . import FORMAT
 from .bot import General
 from .bot import Plex
 from PlexBot import load_config
-from . import FORMAT
-
-import logging
 
 # Load config from file
 config = load_config("config.yaml")
@@ -25,5 +25,5 @@ logger.setLevel(LOG_LEVEL)
 
 bot = Bot(command_prefix=BOT_PREFIX)
 bot.add_cog(General(bot))
-bot.add_cog(Plex(bot, BASE_URL, PLEX_TOKEN, LIBRARY_NAME))
+bot.add_cog(Plex(bot, BASE_URL, PLEX_TOKEN, LIBRARY_NAME, BOT_PREFIX))
 bot.run(TOKEN)
