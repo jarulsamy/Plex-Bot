@@ -1,5 +1,7 @@
+import asyncio
+import io
 import logging
-from queue import Queue
+from urllib.request import urlopen
 
 import discord
 from discord import FFmpegPCMAudio
@@ -8,11 +10,6 @@ from discord.ext.commands import command
 from fuzzywuzzy import fuzz
 from plexapi.exceptions import Unauthorized
 from plexapi.server import PlexServer
-
-import datetime
-from urllib.request import urlopen
-
-import io
 
 logger = logging.getLogger("PlexBot")
 
@@ -29,11 +26,12 @@ class General(commands.Cog):
 
 
 class Plex(commands.Cog):
-    def __init__(self, bot, base_url, plex_token, lib_name) -> None:
+    def __init__(self, bot, base_url, plex_token, lib_name, bot_prefix) -> None:
         self.bot = bot
         self.base_url = base_url
         self.plex_token = plex_token
         self.library_name = lib_name
+        self.bot_prefix = bot_prefix
 
         try:
             self.pms = PlexServer(self.base_url, self.plex_token)
@@ -45,7 +43,10 @@ class Plex(commands.Cog):
 
         self.vc = None
         self.current_track = None
-        self.play_queue = Queue()
+        self.play_queue = asyncio.Queue()
+        self.play_next_event = asyncio.Event()
+
+        self.bot.loop.create_task(self._audio_player_task())
 
         logger.info("Started bot successfully")
 
@@ -67,84 +68,90 @@ class Plex(commands.Cog):
         member = member or ctx.author
         await ctx.send(f"Hello {member}")
 
-    async def _after_callback(self, error=None):
-        logger.debug("After callbacked")
-        if self.play_queue.empty():
-            self.current_track = None
-            logger.debug("No tracks left in queue, returning")
-        else:
-            track = self.play_queue.get()
-            audio_stream = FFmpegPCMAudio(track.getStreamURL())
-            self.current_track = track
-            logger.debug(f"Started playing next song in queue: {track.title}")
-            self.vc.play(audio_stream)
-            embed, f = self._build_play_embed(self.current_track)
-            await self.callback_ctx.send(embed=embed, file=f)
+    async def _play(self):
+        track_url = self.current_track.getStreamURL()
 
-    def _build_play_embed(self, track):
+        audio_stream = FFmpegPCMAudio(track_url)
+        self.vc.play(audio_stream, after=self._toggle_next)
+
+        logger.debug(f"Playing {self.current_track.title}")
+        logger.debug(f"URL: {track_url}")
+
+        embed, f = self._build_embed(self.current_track)
+        await self.ctx.send(embed=embed, file=f)
+
+    async def _audio_player_task(self):
+        while True:
+            self.play_next_event.clear()
+            self.current_track = await self.play_queue.get()
+            await self._play()
+            await self.play_next_event.wait()
+
+    def _toggle_next(self, error=None):
+        self.bot.loop.call_soon_threadsafe(self.play_next_event.set)
+
+    def _build_embed(self, track, t="play"):
         """Creates a pretty embed card.
-
-
-
         """
-
         # Grab the relevant thumbnail
         img_stream = urlopen(track.thumbUrl)
         img = io.BytesIO(img_stream.read())
 
         # Attach to discord embed
         f = discord.File(img, filename="image0.png")
-        descrip = f"{track.album().title} - {track.artist().title}"
+        if t == "play":
+            title = f"Now Playing - {track.title}"
+        elif t == "queue":
+            title = f"Added to queue - {track.title}"
+        else:
+            raise ValueError(f"Unsupported type of embed {t}")
 
-        logger.debug(f"URL: {track.thumbUrl}")
-        logger.debug(f"Description: {descrip}")
+        descrip = f"{track.album().title} - {track.artist().title}"
 
         # Build the actual embed
         embed = discord.Embed(
-            title=track.title, description=descrip, colour=discord.Color.red()
+            title=title, description=descrip, colour=discord.Color.red()
         )
-        dur_seconds = track.duration
-        dur_str = str(datetime.timedelta(seconds=dur_seconds))
-        dur_str = f"Duration: {dur_str}"
 
-        embed.set_footer(text=dur_str)
-        embed.set_thumbnail(url="attachment://image0.png")
         embed.set_author(name="Plex")
+        # Point to file attached with ctx object.
+        embed.set_thumbnail(url="attachment://image0.png")
 
         return embed, f
 
     @command()
     async def play(self, ctx, *args):
+
         if not len(args):
-            await ctx.send("Usage: play TITLE_OF_SONG")
+            await ctx.send(f"Usage: {self.bot_prefix}play TITLE_OF_SONG")
             return
 
         title = " ".join(args)
         track = self._search_tracks(title)
-        if track:
-            track_url = track.getStreamURL()
-            if not ctx.author.voice:
-                await ctx.send("Join a voice channel first!")
-                return
-            if not self.vc:
-                self.vc = await ctx.author.voice.channel.connect()
-                logger.debug("Connected to vc.")
 
-            if self.vc.is_playing():
-                self.play_queue.put(track)
-                self.callback_ctx = ctx
-                await ctx.send(f"Added {track.title} to queue.")
-                logger.debug(f"Added {track.title} to queue.")
-            else:
-                audio_stream = FFmpegPCMAudio(track_url)
-                self.vc.play(audio_stream, after=self._after_callback)
-                self.current_track = track
-                logger.debug(f"Playing {track.title}")
-                embed, f = self._build_play_embed(self.current_track)
-                await ctx.send(embed=embed, file=f)
-        else:
-            logger.debug(f"{title} was not found.")
-            await ctx.send(f"{title} was not found.")
+        # Fail if song title can't be found
+        if not track:
+            await ctx.send(f"Can't find song: {title}")
+            return
+        # Fail if user not in vc
+        elif not ctx.author.voice:
+            await ctx.send("Join a voice channel first!")
+            return
+
+        # Connect to voice if not already
+        if not self.vc:
+            self.vc = await ctx.author.voice.channel.connect()
+            logger.debug("Connected to vc.")
+
+        # Specific add to queue message
+        if self.vc.is_playing():
+            embed, f = self._build_embed(track, t="queue")
+            await ctx.send(embed=embed, file=f)
+
+        # Save the context to use with async callbacks
+        self.ctx = ctx
+        # Add the song to the async queue
+        await self.play_queue.put(track)
 
     @command()
     async def stop(self, ctx):
@@ -152,39 +159,34 @@ class Plex(commands.Cog):
             self.vc.stop()
             await self.vc.disconnect()
             self.vc = None
-            await ctx.send("Stopped")
+            await ctx.send(":stop: Stopped")
 
     @command()
     async def pause(self, ctx):
         if self.vc:
             self.vc.pause()
-            await ctx.send("Paused")
+            await ctx.send(":play_pause: Paused")
 
     @command()
     async def resume(self, ctx):
         if self.vc:
             self.vc.resume()
-            await ctx.send("Resumed")
+            await ctx.send(":play_pause: Resumed")
 
     @command()
     async def skip(self, ctx):
         logger.debug("Skip")
         if self.vc:
             self.vc.stop()
-            await self._after_callback()
+            self._toggle_next()
 
     @command()
     async def np(self, ctx):
-        await ctx.send(f"Currently playing: {self.current_track.title}")
-
-    @command()
-    async def queue(self, ctx):
-        message = ""
-        for i in self.play_queue:
-            message += self.play_queue.title + "\n"
-        await ctx.send(f"Play Queue: {message}")
+        if self.current_track:
+            embed, f = self._build_embed(self.current_track)
+            await ctx.send(embed=embed, file=f)
 
     @command()
     async def clear(self, ctx):
-        self.play_queue = Queue()
-        await ctx.send("Queue cleared.")
+        self.play_queue = asyncio.Queue()
+        await ctx.send(":boom: Queue cleared.")
