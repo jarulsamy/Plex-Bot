@@ -1,6 +1,7 @@
 # Project specific
 config.yaml
 config/
+deploy.sh
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
