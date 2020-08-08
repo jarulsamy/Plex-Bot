@@ -4,6 +4,7 @@ import logging
 from urllib.request import urlopen
 
 import discord
+from async_timeout import timeout
 from discord import FFmpegPCMAudio
 from discord.ext import commands
 from discord.ext.commands import command
@@ -70,11 +71,10 @@ class Plex(commands.Cog):
 
     async def _play(self):
         track_url = self.current_track.getStreamURL()
-
         audio_stream = FFmpegPCMAudio(track_url)
 
         while self.vc.is_playing():
-            asyncio.sleep(10)
+            asyncio.sleep(2)
 
         self.vc.play(audio_stream, after=self._toggle_next)
 
@@ -87,11 +87,23 @@ class Plex(commands.Cog):
     async def _audio_player_task(self):
         while True:
             self.play_next_event.clear()
-            self.current_track = await self.play_queue.get()
+            if self.vc:
+                try:
+                    # Disconnect after 15 seconds idle
+                    async with timeout(15):
+                        self.current_track = await self.play_queue.get()
+                except asyncio.TimeoutError:
+                    await self.vc.disconnect()
+                    self.vc = None
+
+            if not self.current_track:
+                self.current_track = await self.play_queue.get()
+
             await self._play()
             await self.play_next_event.wait()
 
     def _toggle_next(self, error=None):
+        self.current_track = None
         self.bot.loop.call_soon_threadsafe(self.play_next_event.set)
 
     def _build_embed(self, track, t="play"):
@@ -103,6 +115,7 @@ class Plex(commands.Cog):
 
         # Attach to discord embed
         f = discord.File(img, filename="image0.png")
+        # Get appropiate status message
         if t == "play":
             title = f"Now Playing - {track.title}"
         elif t == "queue":
@@ -110,13 +123,13 @@ class Plex(commands.Cog):
         else:
             raise ValueError(f"Unsupported type of embed {t}")
 
+        # Include song details
         descrip = f"{track.album().title} - {track.artist().title}"
 
         # Build the actual embed
         embed = discord.Embed(
             title=title, description=descrip, colour=discord.Color.red()
         )
-
         embed.set_author(name="Plex")
         # Point to file attached with ctx object.
         embed.set_thumbnail(url="attachment://image0.png")
@@ -163,6 +176,7 @@ class Plex(commands.Cog):
             self.vc.stop()
             await self.vc.disconnect()
             self.vc = None
+            self.ctx = None
             await ctx.send(":stop_button: Stopped")
 
     @command()
