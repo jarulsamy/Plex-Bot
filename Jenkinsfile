@@ -49,7 +49,7 @@ pipeline {
             steps {
                 sh  ''' source /var/lib/jenkins/miniconda3/etc/profile.d/conda.sh
                         conda activate ${BUILD_TAG}
-                        docker build .
+                        python deploy/build.py
                     '''
             }
             post {
@@ -58,6 +58,7 @@ pipeline {
                     archiveArtifacts (allowEmptyArchive: true,
                                      artifacts: 'dist/*whl',
                                      fingerprint: true)
+                    sh 'python deploy/push.py'
                 }
             }
         }
