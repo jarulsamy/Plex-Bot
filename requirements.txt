@@ -1,7 +1,6 @@
 discord.py==1.3.4
 PlexAPI==4.0.0
 fuzzywuzzy==0.18.0
-python-Levenshtein==0.12.0
 pynacl==1.4.0
 ffmpeg==1.4
 PyYAML==5.3.1
