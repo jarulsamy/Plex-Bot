@@ -58,7 +58,7 @@ pipeline {
                     archiveArtifacts (allowEmptyArchive: true,
                                      artifacts: 'dist/*whl',
                                      fingerprint: true)
-                    // sh 'python deploy/push.py'
+                    sh 'python deploy/push.py'
                 }
             }
         }
