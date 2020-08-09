@@ -1,11 +1,11 @@
-# Python 3.7
-FROM python:3.7
+FROM python:3.7-slim
 
-# Update system
-RUN apt-get -y update
-RUN apt-get -y upgrade
 # Install ffmpeg
-RUN apt-get install -y --no-install-recommends ffmpeg
+RUN apt-get -y update && \
+    apt-get install -y --no-install-recommends ffmpeg && \
+    apt-get autoremove -y && \
+    apt-get clean && \
+    rm -rf /var/lib/apt/lists/*
 
 # All source code
 WORKDIR /src
@@ -14,11 +14,10 @@ WORKDIR /src
 COPY requirements.txt .
 
 # Install all dependencies.
-RUN pip install -r requirements.txt
+RUN pip install --only-binary all --no-cache-dir -r requirements.txt
 
 # Copy PlexBot over to src.
 COPY PlexBot/ PlexBot
 
 # Run the bot
-# CMD ["python", "-OO", "-m", "PlexBot"]
-CMD ["python", "-m", "PlexBot"]
+CMD ["python", "-OO", "-m", "PlexBot"]
