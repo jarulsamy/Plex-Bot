@@ -20,10 +20,28 @@ class General(commands.Cog):
         self.bot = bot
 
     @command()
-    async def kill(self, ctx):
-        await ctx.send(f"Stopping upon the request of {ctx.author.mention}")
+    async def kill(self, ctx, *args):
+        if "silent" not in args:
+            await ctx.send(f"Stopping upon the request of {ctx.author.mention}")
+
         await self.bot.close()
         logger.info(f"Stopping upon the request of {ctx.author.mention}")
+
+    @command()
+    async def cleanup(self, ctx, limit=250):
+        channel = ctx.message.channel
+
+        try:
+            async for i in channel.history(limit=limit):
+                # Only delete messages sent by self
+                if i.author == self.bot.user:
+                    try:
+                        await i.delete()
+                    except (discord.Forbidden, discord.NotFound, discord.HTTPException):
+                        pass
+
+        except discord.Forbidden:
+            await ctx.send("I don't have the necessary permissions to delete messages.")
 
 
 class Plex(commands.Cog):
@@ -44,6 +62,8 @@ class Plex(commands.Cog):
 
         self.vc = None
         self.current_track = None
+        self.np_message_id = None
+
         self.play_queue = asyncio.Queue()
         self.play_next_event = asyncio.Event()
 
@@ -64,11 +84,6 @@ class Plex(commands.Cog):
 
         return score[0]
 
-    @command()
-    async def hello(self, ctx, *, member: discord.member = None):
-        member = member or ctx.author
-        await ctx.send(f"Hello {member}")
-
     async def _play(self):
         track_url = self.current_track.getStreamURL()
         audio_stream = FFmpegPCMAudio(track_url)
@@ -82,7 +97,7 @@ class Plex(commands.Cog):
         logger.debug(f"URL: {track_url}")
 
         embed, f = self._build_embed(self.current_track)
-        await self.ctx.send(embed=embed, file=f)
+        self.np_message_id = await self.ctx.send(embed=embed, file=f)
 
     async def _audio_player_task(self):
         while True:
@@ -101,6 +116,7 @@ class Plex(commands.Cog):
 
             await self._play()
             await self.play_next_event.wait()
+            await self.np_message_id.delete()
 
     def _toggle_next(self, error=None):
         self.current_track = None
@@ -138,6 +154,8 @@ class Plex(commands.Cog):
 
     @command()
     async def play(self, ctx, *args):
+        # Save the context to use with async callbacks
+        self.ctx = ctx
 
         if not len(args):
             await ctx.send(f"Usage: {self.bot_prefix}play TITLE_OF_SONG")
@@ -165,8 +183,6 @@ class Plex(commands.Cog):
             embed, f = self._build_embed(track, t="queue")
             await ctx.send(embed=embed, file=f)
 
-        # Save the context to use with async callbacks
-        self.ctx = ctx
         # Add the song to the async queue
         await self.play_queue.put(track)
 

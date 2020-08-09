@@ -5,7 +5,7 @@ FROM python:3.7
 RUN apt-get -y update
 RUN apt-get -y upgrade
 # Install ffmpeg
-RUN apt-get install -y ffmpeg
+RUN apt-get install -y --no-install-recommends ffmpeg
 
 # All source code
 WORKDIR /src

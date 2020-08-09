@@ -35,7 +35,7 @@ pipeline {
                 echo "Style check"
                 sh  ''' source /var/lib/jenkins/miniconda3/etc/profile.d/conda.sh
                         conda activate ${BUILD_TAG}
-                        pylint CHANGE_ME || true
+                        pylint PlexBot || true
                     '''
             }
         }
@@ -49,9 +49,7 @@ pipeline {
             steps {
                 sh  ''' source /var/lib/jenkins/miniconda3/etc/profile.d/conda.sh
                         conda activate ${BUILD_TAG}
-                        pwd
-                        ls
-                        python setup.py bdist_wheel
+                        docker build .
                     '''
             }
             post {
@@ -68,14 +66,7 @@ pipeline {
     post {
         always {
             sh 'conda remove --yes -n ${BUILD_TAG} --all'
-        }
-        failure {
-            emailext (
-                subject: "FAILED: Job '${env.JOB_NAME} [${env.BUILD_NUMBER}]'",
-                body: """<p>FAILED: Job '${env.JOB_NAME} [${env.BUILD_NUMBER}]':</p>
-                         <p>Check console output at &QUOT;<a href='${env.BUILD_URL}'>${env.JOB_NAME} [${env.BUILD_NUMBER}]</a>&QUOT;</p>""",
-                recipientProviders: [[$class: 'DevelopersRecipientProvider']]
-            )
+            sh 'docker system prune -a -f'
         }
     }
 }
