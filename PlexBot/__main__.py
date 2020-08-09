@@ -16,12 +16,14 @@ TOKEN = config["discord"]["token"]
 BASE_URL = config["plex"]["base_url"]
 PLEX_TOKEN = config["plex"]["token"]
 LIBRARY_NAME = config["plex"]["library_name"]
-LOG_LEVEL = config["general"]["log_level"]
 
 # Set appropiate log level
-logger = logging.getLogger("PlexBot")
-logging.basicConfig(format=FORMAT)
-logger.setLevel(LOG_LEVEL)
+root_log = logging.getLogger()
+plex_log = logging.getLogger("Plex")
+bot_log = logging.getLogger("Bot")
+
+plex_log.setLevel(config["plex"]["log_level"])
+bot_log.setLevel(config["discord"]["log_level"])
 
 bot = Bot(command_prefix=BOT_PREFIX)
 bot.add_cog(General(bot))
