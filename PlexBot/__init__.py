@@ -8,7 +8,9 @@ import yaml
 FORMAT = "%(asctime)s %(levelname)s: [%(filename)s:%(lineno)s - %(funcName)20s() ] %(message)s"
 
 logging.basicConfig(format=FORMAT)
-logger = logging.getLogger("PlexBot")
+root_log = logging.getLogger()
+plex_log = logging.getLogger("Plex")
+bot_log = logging.getLogger("Bot")
 
 
 def load_config(filename: str) -> Dict[str, str]:
@@ -20,7 +22,7 @@ def load_config(filename: str) -> Dict[str, str]:
         with open(filename, "r") as f:
             config = yaml.safe_load(f)
     except FileNotFoundError:
-        logging.fatal("Configuration file not found.")
+        root_log.fatal("Configuration file not found.")
         sys.exit(-1)
 
     # Convert str level type to logging constant
@@ -31,7 +33,9 @@ def load_config(filename: str) -> Dict[str, str]:
         "ERROR": logging.ERROR,
         "CRITICAL": logging.CRITICAL,
     }
-    level = config["general"]["log_level"]
-    config["general"]["log_level"] = levels[level.upper()]
+
+    config["root"]["log_level"] = levels[config["root"]["log_level"].upper()]
+    config["plex"]["log_level"] = levels[config["plex"]["log_level"].upper()]
+    config["discord"]["log_level"] = levels[config["discord"]["log_level"].upper()]
 
     return config

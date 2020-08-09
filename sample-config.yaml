@@ -1,12 +1,13 @@
-general:
-  # Options: debug, info, warning, error, critical
+root:
   log_level: "info"
 
 discord:
   prefix: "?"
   token: "<BOT_TOKEN>"
+  log_level: "debug"
 
 plex:
   base_url: "<BASE_URL>"
   token: "<PLEX_TOKEN>"
   library_name: "<LIBRARY_NAME>"
+  log_level: "debug"

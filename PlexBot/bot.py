@@ -12,7 +12,9 @@ from fuzzywuzzy import fuzz
 from plexapi.exceptions import Unauthorized
 from plexapi.server import PlexServer
 
-logger = logging.getLogger("PlexBot")
+root_log = logging.getLogger()
+plex_log = logging.getLogger("Plex")
+bot_log = logging.getLogger("Bot")
 
 
 class General(commands.Cog):
@@ -25,7 +27,7 @@ class General(commands.Cog):
             await ctx.send(f"Stopping upon the request of {ctx.author.mention}")
 
         await self.bot.close()
-        logger.info(f"Stopping upon the request of {ctx.author.mention}")
+        bot_log.info(f"Stopping upon the request of {ctx.author.mention}")
 
     @command()
     async def cleanup(self, ctx, limit=250):
@@ -55,10 +57,11 @@ class Plex(commands.Cog):
         try:
             self.pms = PlexServer(self.base_url, self.plex_token)
         except Unauthorized:
-            logger.fatal("Invalid Plex token, stopping...")
+            plex_log.fatal("Invalid Plex token, stopping...")
             raise Unauthorized("Invalid Plex token")
 
         self.music = self.pms.library.section(self.library_name)
+        plex_log.debug(f"Connected to plex library: {self.library_name}")
 
         self.vc = None
         self.current_track = None
@@ -69,7 +72,7 @@ class Plex(commands.Cog):
 
         self.bot.loop.create_task(self._audio_player_task())
 
-        logger.info("Started bot successfully")
+        bot_log.info("Started bot successfully")
 
     def _search_tracks(self, title):
         tracks = self.music.searchTracks()
@@ -93,8 +96,7 @@ class Plex(commands.Cog):
 
         self.vc.play(audio_stream, after=self._toggle_next)
 
-        logger.debug(f"Playing {self.current_track.title}")
-        logger.debug(f"URL: {track_url}")
+        plex_log.debug(f"{self.current_track.title} - URL: {track_url}")
 
         embed, f = self._build_embed(self.current_track)
         self.np_message_id = await self.ctx.send(embed=embed, file=f)
@@ -150,6 +152,8 @@ class Plex(commands.Cog):
         # Point to file attached with ctx object.
         embed.set_thumbnail(url="attachment://image0.png")
 
+        bot_log.debug(f"Built embed for {track.title}")
+
         return embed, f
 
     @command()
@@ -159,6 +163,7 @@ class Plex(commands.Cog):
 
         if not len(args):
             await ctx.send(f"Usage: {self.bot_prefix}play TITLE_OF_SONG")
+            bot_log.debug("Failed to play, invalid usage")
             return
 
         title = " ".join(args)
@@ -167,19 +172,23 @@ class Plex(commands.Cog):
         # Fail if song title can't be found
         if not track:
             await ctx.send(f"Can't find song: {title}")
+            bot_log.debug(f"Failed to play, can't find song - {title}")
             return
+
         # Fail if user not in vc
         elif not ctx.author.voice:
             await ctx.send("Join a voice channel first!")
+            bot_log.debug("Failed to play, requester not in voice channel")
             return
 
         # Connect to voice if not already
         if not self.vc:
             self.vc = await ctx.author.voice.channel.connect()
-            logger.debug("Connected to vc.")
+            bot_log.debug("Connected to vc.")
 
         # Specific add to queue message
         if self.vc.is_playing():
+            bot_log.debug(f"Added to queue - {title}")
             embed, f = self._build_embed(track, t="queue")
             await ctx.send(embed=embed, file=f)
 
@@ -193,34 +202,45 @@ class Plex(commands.Cog):
             await self.vc.disconnect()
             self.vc = None
             self.ctx = None
+            bot_log.debug("Stopped")
             await ctx.send(":stop_button: Stopped")
 
     @command()
     async def pause(self, ctx):
         if self.vc:
             self.vc.pause()
+            bot_log.debug("Paused")
             await ctx.send(":play_pause: Paused")
 
     @command()
     async def resume(self, ctx):
         if self.vc:
             self.vc.resume()
+            bot_log.debug("Resumed")
             await ctx.send(":play_pause: Resumed")
 
     @command()
     async def skip(self, ctx):
-        logger.debug("Skip")
+        bot_log.debug("Skip")
         if self.vc:
             self.vc.stop()
+            bot_log.debug("Skipped")
             self._toggle_next()
 
     @command()
     async def np(self, ctx):
         if self.current_track:
             embed, f = self._build_embed(self.current_track)
-            await ctx.send(embed=embed, file=f)
+            bot_log.debug("Now playing")
+            if self.np_message_id:
+                await self.np_message_id.delete()
+                bot_log("Deleted old np status")
+
+            bot_log("Created np status")
+            self.np_message_id = await ctx.send(embed=embed, file=f)
 
     @command()
     async def clear(self, ctx):
         self.play_queue = asyncio.Queue()
+        bot_log.debug("Cleared queue")
         await ctx.send(":boom: Queue cleared.")
