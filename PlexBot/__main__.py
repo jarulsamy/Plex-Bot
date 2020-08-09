@@ -1,11 +1,15 @@
+"""Main entrypoint for bot
+
+    Sets up loggers and initiates bot.
+
+"""
 import logging
 
 from discord.ext.commands import Bot
 
-from . import FORMAT
+from . import load_config
 from .bot import General
 from .bot import Plex
-from PlexBot import load_config
 
 # Load config from file
 config = load_config("config.yaml")

@@ -1,1 +1,2 @@
-VERSION = "0.0.5"
+"""Track version number of package"""
+VERSION = "0.0.6"
