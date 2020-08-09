@@ -232,7 +232,12 @@ class Plex(commands.Cog):
         if self.current_track:
             embed, f = self._build_embed(self.current_track)
             bot_log.debug("Now playing")
-            await ctx.send(embed=embed, file=f)
+            if self.np_message_id:
+                await self.np_message_id.delete()
+                bot_log("Deleted old np status")
+
+            bot_log("Created np status")
+            self.np_message_id = await ctx.send(embed=embed, file=f)
 
     @command()
     async def clear(self, ctx):
