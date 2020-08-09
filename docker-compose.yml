@@ -2,7 +2,7 @@ version: "3"
 services:
   plex-bot:
     container_name: "PlexBot"
-    build: .
+    image: jarulsamy/plex-bot:latest
     environment:
       - PUID=1000
       - PGID=1000
@@ -10,4 +10,4 @@ services:
     # Required dir for configuration files
     volumes:
       - "./config:/config:ro"
-    restart: "no"
+    restart: "unless-stopped"
