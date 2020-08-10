@@ -1,8 +1,8 @@
-"""Plex music bot for discord.
+"""
+Plex music bot for discord.
 
-    Do not import this module, it is intended to be
-    used exclusively within a docker environment.
-
+Do not import this module, it is intended to be
+used exclusively within a docker environment.
 """
 import logging
 import sys

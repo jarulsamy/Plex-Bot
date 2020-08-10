@@ -1,7 +1,6 @@
-"""Main entrypoint for bot
-
-    Sets up loggers and initiates bot.
-
+"""
+Main entrypoint script.
+Sets up loggers and initiates bot.
 """
 import logging
 
