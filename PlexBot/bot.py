@@ -1,4 +1,4 @@
-""" All discord bot and Plex api interactions"""
+"""All discord bot and Plex api interactions."""
 import asyncio
 import io
 import logging
