@@ -14,7 +14,7 @@ WORKDIR /src
 COPY requirements.txt .
 
 # Install all dependencies.
-RUN pip install --only-binary all --no-cache-dir -r requirements.txt
+RUN pip install --no-cache-dir -r requirements.txt
 
 # Copy PlexBot over to src.
 COPY PlexBot/ PlexBot
