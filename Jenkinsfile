@@ -52,10 +52,15 @@ pipeline {
                         ./deploy/build.sh
                     '''
             }
-            post {
-                always {
-                    sh './deploy/push.sh'
+        }
+        stage('Push Image') {
+            when {
+                expression {
+                    currentBuild.result == 'SUCCESS'
                 }
+            }
+            steps {
+                sh './deploy/push.sh'
             }
         }
     }
