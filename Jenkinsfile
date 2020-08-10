@@ -49,16 +49,12 @@ pipeline {
             steps {
                 sh  ''' source /var/lib/jenkins/miniconda3/etc/profile.d/conda.sh
                         conda activate ${BUILD_TAG}
-                        python deploy/build.py
+                        ./deploy/build.sh
                     '''
             }
             post {
                 always {
-                    // Archive unit tests for the future
-                    archiveArtifacts (allowEmptyArchive: true,
-                                     artifacts: 'dist/*whl',
-                                     fingerprint: true)
-                    sh 'python deploy/push.py'
+                    sh './deploy/push.sh'
                 }
             }
         }
