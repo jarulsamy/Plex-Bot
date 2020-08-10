@@ -25,6 +25,7 @@ pipeline {
                 sh  ''' conda create --yes -n ${BUILD_TAG} python
                         source /var/lib/jenkins/miniconda3/etc/profile.d/conda.sh
                         conda activate ${BUILD_TAG}
+                        pip install -r requirements.txt
                         pip install pylint
                     '''
             }
@@ -47,18 +48,10 @@ pipeline {
                 }
             }
             steps {
-                sh  ''' source /var/lib/jenkins/miniconda3/etc/profile.d/conda.sh
-                        conda activate ${BUILD_TAG}
-                        ./deploy/build.sh
-                    '''
+                sh  './deploy/build.sh'
             }
         }
         stage('Push Image') {
-            when {
-                expression {
-                    currentBuild.result == 'SUCCESS'
-                }
-            }
             steps {
                 sh './deploy/push.sh'
             }
