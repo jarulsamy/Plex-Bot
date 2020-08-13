@@ -303,7 +303,8 @@ class Plex(commands.Cog):
         self.current_track = None
         self.bot.loop.call_soon_threadsafe(self.play_next_event.set)
 
-    def _build_embed_track(self, track, type_="play"):
+    @staticmethod
+    def _build_embed_track(track, type_="play"):
         """Creates a pretty embed card for tracks
 
         Builds a helpful status embed with the following info:
@@ -350,7 +351,8 @@ class Plex(commands.Cog):
 
         return embed, art_file
 
-    def _build_embed_album(self, album):
+    @staticmethod
+    def _build_embed_album(album):
         """Creates a pretty embed card for albums
 
         Builds a helpful status embed with the following info:
