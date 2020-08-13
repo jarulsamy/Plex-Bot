@@ -9,9 +9,10 @@ from async_timeout import timeout
 from discord import FFmpegPCMAudio
 from discord.ext import commands
 from discord.ext.commands import command
-from fuzzywuzzy import fuzz
 from plexapi.exceptions import Unauthorized
 from plexapi.server import PlexServer
+
+from .exceptions import TrackNotFoundError
 
 root_log = logging.getLogger()
 plex_log = logging.getLogger("Plex")
@@ -152,32 +153,22 @@ class Plex(commands.Cog):
         self.bot.loop.create_task(self._audio_player_task())
 
     def _search_tracks(self, title: str):
-        """Search the Plex music db
-
-        Uses a fuzzy search algorithm to find the closest matching song
-        title in the Plex music database.
+        """Search the Plex music db for track
 
         Args:
             title: str title of song to search for
 
         Returns:
             plexapi.audio.Track pointing to closest matching title
-            None if song can't be found.
 
         Raises:
-            None
+            TrackNotFoundError: Title of track can't be found in plex db.
         """
-        tracks = self.music.searchTracks()
-        score = [None, -1]
-        for i in tracks:
-            ratio = fuzz.ratio(title.lower(), i.title.lower())
-            if ratio > score[1]:
-                score[0] = i
-                score[1] = ratio
-            elif ratio == score[1]:
-                score[0] = i
-
-        return score[0]
+        results = self.music.searchTracks(title=title, maxresults=1)
+        try:
+            return results[0]
+        except IndexError:
+            raise TrackNotFoundError
 
     async def _play(self):
         """Heavy lifting of playing songs
@@ -332,10 +323,9 @@ class Plex(commands.Cog):
             return
 
         title = " ".join(args)
-        track = self._search_tracks(title)
-
-        # Fail if song title can't be found
-        if not track:
+        try:
+            track = self._search_tracks(title)
+        except TrackNotFoundError:
             await ctx.send(f"Can't find song: {title}")
             bot_log.debug("Failed to play, can't find song - %s", title)
             return
