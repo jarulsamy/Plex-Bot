@@ -9,13 +9,33 @@ from async_timeout import timeout
 from discord import FFmpegPCMAudio
 from discord.ext import commands
 from discord.ext.commands import command
-from fuzzywuzzy import fuzz
 from plexapi.exceptions import Unauthorized
 from plexapi.server import PlexServer
+
+from .exceptions import MediaNotFoundError
+from .exceptions import VoiceChannelError
 
 root_log = logging.getLogger()
 plex_log = logging.getLogger("Plex")
 bot_log = logging.getLogger("Bot")
+
+help_text = """
+General:
+    kill [silent] - Halt the bot [silently].
+    help - Print this help message.
+    cleanup - Delete old messages from the bot.
+
+Plex:
+    play <SONG_NAME> - Play a song from the plex server.
+    album <ALBUM_NAME> - Queue an entire album to play.
+    np - Print the current playing song.
+    stop - Halt playback and leave vc.
+    pause - Pause playback.
+    resume - Resume playback.
+    clear - Clear play queue.
+
+[] - Optional args.
+"""
 
 
 class General(commands.Cog):
@@ -58,6 +78,22 @@ class General(commands.Cog):
         await self.bot.close()
         bot_log.info("Stopping upon the request of %s", ctx.author.mention)
 
+    @command(name="help")
+    async def help(self, ctx):
+        """Prints command help
+
+        Args:
+            ctx: discord.ext.commands.Context message context from command
+
+        Returns:
+            None
+
+        Raise:
+            None
+        """
+
+        await ctx.send(f"```{help_text}```")
+
     @command()
     async def cleanup(self, ctx, limit=250):
         """Delete old messages from bot
@@ -89,11 +125,11 @@ class General(commands.Cog):
 
 
 class Plex(commands.Cog):
-    """Discord commands pertinent to interacting with Plex
+    """
+    Discord commands pertinent to interacting with Plex
 
-        Contains user commands such as play, pause, resume, stop, etc.
-        Grabs, and parses all data from plex database.
-
+    Contains user commands such as play, pause, resume, stop, etc.
+    Grabs, and parses all data from plex database.
     """
 
     # pylint: disable=too-many-instance-attributes
@@ -152,32 +188,40 @@ class Plex(commands.Cog):
         self.bot.loop.create_task(self._audio_player_task())
 
     def _search_tracks(self, title: str):
-        """Search the Plex music db
-
-        Uses a fuzzy search algorithm to find the closest matching song
-        title in the Plex music database.
+        """Search the Plex music db for track
 
         Args:
             title: str title of song to search for
 
         Returns:
-            plexapi.audio.Track pointing to closest matching title
-            None if song can't be found.
+            plexapi.audio.Track pointing to best matching title
 
         Raises:
-            None
+            MediaNotFoundError: Title of track can't be found in plex db
         """
-        tracks = self.music.searchTracks()
-        score = [None, -1]
-        for i in tracks:
-            ratio = fuzz.ratio(title.lower(), i.title.lower())
-            if ratio > score[1]:
-                score[0] = i
-                score[1] = ratio
-            elif ratio == score[1]:
-                score[0] = i
+        results = self.music.searchTracks(title=title, maxresults=1)
+        try:
+            return results[0]
+        except IndexError:
+            raise MediaNotFoundError("Track cannot be found")
 
-        return score[0]
+    def _search_albums(self, title: str):
+        """Search the Plex music db for album
+
+        Args:
+            title: str title of album to search for
+
+        Returns:
+            plexapi.audio.Album pointing to best matching title
+
+        Raises:
+            MediaNotFoundError: Title of album can't be found in plex db
+        """
+        results = self.music.searchAlbums(title=title, maxresults=1)
+        try:
+            return results[0]
+        except IndexError:
+            raise MediaNotFoundError("Album cannot be found")
 
     async def _play(self):
         """Heavy lifting of playing songs
@@ -204,7 +248,7 @@ class Plex(commands.Cog):
 
         plex_log.debug("%s - URL: %s", self.current_track, track_url)
 
-        embed, img = self._build_embed(self.current_track)
+        embed, img = self._build_embed_track(self.current_track)
         self.np_message_id = await self.ctx.send(embed=embed, file=img)
 
     async def _audio_player_task(self):
@@ -259,11 +303,11 @@ class Plex(commands.Cog):
         self.current_track = None
         self.bot.loop.call_soon_threadsafe(self.play_next_event.set)
 
-    def _build_embed(self, track, type_="play"):
-        """Creates a pretty embed card.
+    def _build_embed_track(self, track, type_="play"):
+        """Creates a pretty embed card for tracks
 
         Builds a helpful status embed with the following info:
-        Status, song title, album, artistm and album art. All
+        Status, song title, album, artist and album art. All
         pertitent information is grabbed dynamically from the Plex db.
 
         Args:
@@ -271,7 +315,7 @@ class Plex(commands.Cog):
             type_: Type of card to make (play, queue).
 
         Returns:
-            embed: discord.embed fully constructed img payload.
+            embed: discord.embed fully constructed payload.
             thumb_art: io.BytesIO of album thumbnail img.
 
         Raises:
@@ -302,13 +346,71 @@ class Plex(commands.Cog):
         # Point to file attached with ctx object.
         embed.set_thumbnail(url="attachment://image0.png")
 
-        bot_log.debug("Built embed for %s", track.title)
+        bot_log.debug("Built embed for track - %s", track.title)
 
         return embed, art_file
 
+    def _build_embed_album(self, album):
+        """Creates a pretty embed card for albums
+
+        Builds a helpful status embed with the following info:
+        album, artist, and album art. All pertitent information
+        is grabbed dynamically from the Plex db.
+
+        Args:
+            album: plexapi.audio.Album object of album
+
+        Returns:
+            embed: discord.embed fully constructed payload.
+            thumb_art: io.BytesIO of album thumbnail img.
+
+        Raises:
+            None
+        """
+        # Grab the relevant thumbnail
+        img_stream = urlopen(album.thumbUrl)
+        img = io.BytesIO(img_stream.read())
+
+        # Attach to discord embed
+        art_file = discord.File(img, filename="image0.png")
+        title = "Added album to queue"
+        descrip = f"{album.title} - {album.artist().title}"
+
+        embed = discord.Embed(
+            title=title, description=descrip, colour=discord.Color.red()
+        )
+        embed.set_author(name="Plex")
+        embed.set_thumbnail(url="attachment://image0.png")
+        bot_log.debug("Built embed for album - %s", album.title)
+
+        return embed, art_file
+
+    async def _validate(self, ctx):
+        """Ensures user is in a vc
+
+        Args:
+            ctx: discord.ext.commands.Context message context from command
+
+        Returns:
+            None
+
+        Raises:
+            VoiceChannelError: Author not in voice channel
+        """
+        # Fail if user not in vc
+        if not ctx.author.voice:
+            await ctx.send("Join a voice channel first!")
+            bot_log.debug("Failed to play, requester not in voice channel")
+            raise VoiceChannelError
+
+        # Connect to voice if not already
+        if not self.voice_channel:
+            self.voice_channel = await ctx.author.voice.channel.connect()
+            bot_log.debug("Connected to vc.")
+
     @command()
     async def play(self, ctx, *args):
-        """User command to start playback
+        """User command to play song
 
         Searchs plex db and either, initiates playback, or
         adds to queue. Handles invalid usage from the user.
@@ -325,40 +427,68 @@ class Plex(commands.Cog):
         """
         # Save the context to use with async callbacks
         self.ctx = ctx
-
-        if not args:
-            await ctx.send(f"Usage: {self.bot_prefix}play TITLE_OF_SONG")
-            bot_log.debug("Failed to play, invalid usage")
-            return
-
         title = " ".join(args)
-        track = self._search_tracks(title)
 
-        # Fail if song title can't be found
-        if not track:
+        try:
+            track = self._search_tracks(title)
+        except MediaNotFoundError:
             await ctx.send(f"Can't find song: {title}")
             bot_log.debug("Failed to play, can't find song - %s", title)
             return
 
-        # Fail if user not in vc
-        if not ctx.author.voice:
-            await ctx.send("Join a voice channel first!")
-            bot_log.debug("Failed to play, requester not in voice channel")
-            return
-
-        # Connect to voice if not already
-        if not self.voice_channel:
-            self.voice_channel = await ctx.author.voice.channel.connect()
-            bot_log.debug("Connected to vc.")
+        try:
+            await self._validate(ctx)
+        except VoiceChannelError:
+            pass
 
         # Specific add to queue message
         if self.voice_channel.is_playing():
             bot_log.debug("Added to queue - %s", title)
-            embed, img = self._build_embed(track, type_="queue")
+            embed, img = self._build_embed_track(track, type_="queue")
             await ctx.send(embed=embed, file=img)
 
         # Add the song to the async queue
         await self.play_queue.put(track)
+
+    @command()
+    async def album(self, ctx, *args):
+        """User command to play song
+
+        Searchs plex db and either, initiates playback, or
+        adds to queue. Handles invalid usage from the user.
+
+        Args:
+            ctx: discord.ext.commands.Context message context from command
+            *args: Title of song to play
+
+        Returns:
+            None
+
+        Raises:
+            None
+        """
+        # Save the context to use with async callbacks
+        self.ctx = ctx
+        title = " ".join(args)
+
+        try:
+            album = self._search_albums(title)
+        except MediaNotFoundError:
+            await ctx.send(f"Can't find album: {title}")
+            bot_log.debug("Failed to queue album, can't find - %s", title)
+            return
+
+        try:
+            await self._validate(ctx)
+        except VoiceChannelError:
+            pass
+
+        bot_log.debug("Added to queue - %s", title)
+        embed, img = self._build_embed_album(album)
+        await ctx.send(embed=embed, file=img)
+
+        for track in album.tracks():
+            await self.play_queue.put(track)
 
     @command()
     async def stop(self, ctx):
@@ -461,7 +591,7 @@ class Plex(commands.Cog):
             None
         """
         if self.current_track:
-            embed, img = self._build_embed(self.current_track)
+            embed, img = self._build_embed_track(self.current_track)
             bot_log.debug("Now playing")
             if self.np_message_id:
                 await self.np_message_id.delete()
