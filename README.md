@@ -113,19 +113,20 @@ docker-compose logs -f PlexBot
 
 ```text
 General:
-  kill - Stop the bot.
-Plex:
-  np - View currently playing song.
-  pause - Pause currently playing song.
-  play - Play a song from the Plex library.
-  resume - Resume a paused song.
-  skip - Skip a song.
-  stop - Stop playing.
-​No Category:
-  help   Shows this message
+    kill [silent] - Halt the bot [silently].
+    help - Print this help message.
+    cleanup - Delete old messages from the bot.
 
-Type ?help command for more info on a command.
-You can also type ?help category for more info on a category.
+Plex:
+    play <SONG_NAME> - Play a song from the plex server.
+    album <ALBUM_NAME> - Queue an entire album to play.
+    np - Print the current playing song.
+    stop - Halt playback and leave vc.
+    pause - Pause playback.
+    resume - Resume playback.
+    clear - Clear play queue.
+
+[] - Optional args.
 ```
 
 * * *
