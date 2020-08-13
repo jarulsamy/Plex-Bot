@@ -10,4 +10,4 @@ services:
     # Required dir for configuration files
     volumes:
       - "./config:/config:ro"
-    restart: "unless-stopped"
+    restart: "no"
