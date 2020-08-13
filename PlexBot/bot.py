@@ -19,6 +19,24 @@ root_log = logging.getLogger()
 plex_log = logging.getLogger("Plex")
 bot_log = logging.getLogger("Bot")
 
+help_text = """
+General:
+    kill [silent] - Halt the bot [silently].
+    help - Print this help message.
+    cleanup - Delete old messages from the bot.
+
+Plex:
+    play <SONG_NAME> - Play a song from the plex server.
+    album <ALBUM_NAME> - Queue an entire album to play.
+    np - Print the current playing song.
+    stop - Halt playback and leave vc.
+    pause - Pause playback.
+    resume - Resume playback.
+    clear - Clear play queue.
+
+[] - Optional args.
+"""
+
 
 class General(commands.Cog):
     """General commands
@@ -60,6 +78,22 @@ class General(commands.Cog):
         await self.bot.close()
         bot_log.info("Stopping upon the request of %s", ctx.author.mention)
 
+    @command(name="help")
+    async def help(self, ctx):
+        """Prints command help
+
+        Args:
+            ctx: discord.ext.commands.Context message context from command
+
+        Returns:
+            None
+
+        Raise:
+            None
+        """
+
+        await ctx.send(f"```{help_text}```")
+
     @command()
     async def cleanup(self, ctx, limit=250):
         """Delete old messages from bot
@@ -91,11 +125,11 @@ class General(commands.Cog):
 
 
 class Plex(commands.Cog):
-    """Discord commands pertinent to interacting with Plex
+    """
+    Discord commands pertinent to interacting with Plex
 
-        Contains user commands such as play, pause, resume, stop, etc.
-        Grabs, and parses all data from plex database.
-
+    Contains user commands such as play, pause, resume, stop, etc.
+    Grabs, and parses all data from plex database.
     """
 
     # pylint: disable=too-many-instance-attributes

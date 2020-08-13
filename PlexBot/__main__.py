@@ -29,6 +29,8 @@ plex_log.setLevel(config["plex"]["log_level"])
 bot_log.setLevel(config["discord"]["log_level"])
 
 bot = Bot(command_prefix=BOT_PREFIX)
+# Remove help command, we have our own custom one.
+bot.remove_command("help")
 bot.add_cog(General(bot))
 bot.add_cog(Plex(bot, BASE_URL, PLEX_TOKEN, LIBRARY_NAME, BOT_PREFIX))
 bot.run(TOKEN)
