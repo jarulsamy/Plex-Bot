@@ -1,2 +1,6 @@
-class TrackNotFoundError(Exception):
+class MediaNotFoundError(Exception):
+    pass
+
+
+class VoiceChannelError(Exception):
     pass
