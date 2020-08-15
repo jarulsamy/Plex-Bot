@@ -1,5 +1,7 @@
 FROM python:3.7-slim
 
+LABEL maintainer="Joshua Arulsamy <joshua.gf.arul@gmail.com>"
+
 # Install ffmpeg
 RUN apt-get -y update && \
     apt-get install -y --no-install-recommends ffmpeg=7:4.1.6-1~deb10u1 && \
