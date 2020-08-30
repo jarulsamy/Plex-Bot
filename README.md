@@ -1,5 +1,6 @@
 # Plex-Bot
 
+[![Codacy Badge](https://api.codacy.com/project/badge/Grade/c93b8ff976ce4205a95046487917476b)](https://app.codacy.com/manual/jarulsamy/Plex-Bot?utm_source=github.com&utm_medium=referral&utm_content=jarulsamy/Plex-Bot&utm_campaign=Badge_Grade_Dashboard)
 [![GPLv3 license](https://img.shields.io/badge/License-GPLv3-blue.svg)](http://perso.crans.org/besson/LICENSE.html)
 ![docker pulls](https://img.shields.io/docker/pulls/jarulsamy/plex-bot)
 ![docker img size](https://img.shields.io/docker/image-size/jarulsamy/plex-bot)
