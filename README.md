@@ -89,11 +89,27 @@ Plex-Bot runs entirely in a Docker container. Ensure you have Docker and docker-
 
      * Add it to `config/config.yaml` in the appropiate spot.
 
-6. Customize remaining settings
+6. Get your Lyrics Genius token (Optional):
+
+   If you wanty to disable this feature, set token to `None` in `config/config.yaml`
+
+   If you would like to enable the lyrics feature of the bot, you need to signup for a free GeniusLyrics account, [here](https://genius.com/api-clients).
+
+   After you make an account:
+
+   1. Click New API Client
+
+   2. Set the app website url to: `https://github.com/jarulsamy/Plex-Bot`
+
+   3. Set the redirect url to: `http://localhost`
+
+   4. Copy the **Client Access Token** to `config/config.yaml`
+
+7. Customize remaining settings
 
     Set any remaining settings in the config file that you would like. Such as music library, and base url of the Plex server.
 
-7. Start the service:
+8. Start the service:
 
    ```bash
    docker-compose up -d
@@ -121,6 +137,7 @@ General:
 Plex:
     play <SONG_NAME> - Play a song from the plex server.
     album <ALBUM_NAME> - Queue an entire album to play.
+    lyrics - Print the lyrics of the song (Requires Genius API)
     np - Print the current playing song.
     stop - Halt playback and leave vc.
     pause - Pause playback.

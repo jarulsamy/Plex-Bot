@@ -11,3 +11,6 @@ plex:
   token: "<PLEX_TOKEN>"
   library_name: "<LIBRARY_NAME>"
   log_level: "debug"
+
+lyrics:
+  token: <CLIENT_ACCESS_TOKEN>
