@@ -5,6 +5,7 @@ import logging
 from urllib.request import urlopen
 
 import discord
+import lyricsgenius
 from async_timeout import timeout
 from discord import FFmpegPCMAudio
 from discord.ext import commands
@@ -28,6 +29,7 @@ General:
 Plex:
     play <SONG_NAME> - Play a song from the plex server.
     album <ALBUM_NAME> - Queue an entire album to play.
+    lyrics - Print the lyrics of the song (Requires Genius API)
     np - Print the current playing song.
     stop - Halt playback and leave vc.
     pause - Pause playback.
@@ -119,6 +121,15 @@ class General(commands.Cog):
                     except (discord.Forbidden, discord.NotFound, discord.HTTPException):
                         pass
 
+            async for i in channel.history(limit=limit):
+                if i.author == ctx.message.author and i.content.startswith(
+                    self.bot.command_prefix
+                ):
+                    try:
+                        await i.delete()
+                    except (discord.Forbidden, discord.NotFound, discord.HTTPException):
+                        pass
+
         except discord.Forbidden:
             bot_log.info("Unable to delete messages, insufficient permissions.")
             await ctx.send("I don't have the necessary permissions to delete messages.")
@@ -136,9 +147,7 @@ class Plex(commands.Cog):
     # All are necessary to detect global interactions
     # within the bot.
 
-    def __init__(
-        self, bot, base_url: str, plex_token: str, lib_name: str, bot_prefix: str
-    ):
+    def __init__(self, bot, **kwargs):
         """Initializes Plex resources
 
         Connects to Plex library and sets up
@@ -149,7 +158,6 @@ class Plex(commands.Cog):
             base_url: str url to Plex server
             plex_token: str X-Token of Plex server
             lib_name: str name of Plex library to search through
-            bot_prefix: str prefix used to interact with bots
 
         Raises:
             plexapi.exceptions.Unauthorized: Invalid Plex token
@@ -159,10 +167,16 @@ class Plex(commands.Cog):
         """
 
         self.bot = bot
-        self.base_url = base_url
-        self.plex_token = plex_token
-        self.library_name = lib_name
-        self.bot_prefix = bot_prefix
+        self.base_url = kwargs["base_url"]
+        self.plex_token = kwargs["plex_token"]
+        self.library_name = kwargs["lib_name"]
+        self.bot_prefix = bot.command_prefix
+
+        if kwargs["lyrics_token"]:
+            self.genius = lyricsgenius.Genius(kwargs["lyrics_token"])
+        else:
+            plex_log.warning("No lyrics token specified, lyrics disabled")
+            self.genius = None
 
         # Log fatal invalid plex token
         try:
@@ -618,3 +632,54 @@ class Plex(commands.Cog):
         self.play_queue = asyncio.Queue()
         bot_log.debug("Cleared queue")
         await ctx.send(":boom: Queue cleared.")
+
+    @command()
+    async def lyrics(self, ctx):
+        """User command to get lyrics of a song.
+
+        Args:
+            ctx: discord.ext.commands.Context message context from command
+
+            Returns:
+                None
+
+            Raises:
+                None
+        """
+        if not self.current_track:
+            plex_log.info("No song currently playing")
+            return
+
+        if self.genius:
+            plex_log.info(
+                "Searching for %s, %s",
+                self.current_track.title,
+                self.current_track.artist().title,
+            )
+            try:
+                song = self.genius.search_song(
+                    self.current_track.title, self.current_track.artist().title
+                )
+            except TypeError:
+                self.genius = None
+                plex_log.error("Invalid genius token, disabling lyrics")
+                return
+
+            try:
+                lyrics = song.lyrics
+                # Split into 1950 char chunks
+                # Discord max message length is 2000
+                lines = [(lyrics[i : i + 1950]) for i in range(0, len(lyrics), 1950)]
+
+                for i in lines:
+                    if i == "":
+                        continue
+                    # Apply code block format
+                    i = f"```{i}```"
+                    await ctx.send(i)
+
+            except (IndexError, TypeError):
+                plex_log.info("Could not find lyrics")
+                await ctx.send("Can't find lyrics for this song.")
+        else:
+            plex_log.warning("Attempted lyrics without valid token")
