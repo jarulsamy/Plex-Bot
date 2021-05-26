@@ -11,6 +11,7 @@ from discord import FFmpegPCMAudio
 from discord.ext import commands
 from discord.ext.commands import command
 from plexapi.exceptions import Unauthorized
+from plexapi.exceptions import NotFound
 from plexapi.server import PlexServer
 
 from .exceptions import MediaNotFoundError
@@ -236,6 +237,24 @@ class Plex(commands.Cog):
             return results[0]
         except IndexError:
             raise MediaNotFoundError("Album cannot be found")
+            
+    def _search_playlists(self, title: str):
+        """Search the Plex music db for playlist
+
+        Args:
+            title: str title of playlist to search for
+
+        Returns:
+            plexapi.playlist pointing to best matching title
+
+        Raises:
+            MediaNotFoundError: Title of playlist can't be found in plex db
+        """
+        
+        try:
+            return self.pms.playlist(title)
+        except NotFound:
+            raise MediaNotFoundError("Playlist cannot be found")
 
     async def _play(self):
         """Heavy lifting of playing songs
@@ -400,6 +419,42 @@ class Plex(commands.Cog):
         bot_log.debug("Built embed for album - %s", album.title)
 
         return embed, art_file
+        
+    @staticmethod
+    def _build_embed_playlist(self, playlist):
+        """Creates a pretty embed card for playlists
+
+        Builds a helpful status embed with the following info:
+        playlist art. All pertitent information
+        is grabbed dynamically from the Plex db.
+
+        Args:
+            playlist: plexapi.playlist object of playlist
+
+        Returns:
+            embed: discord.embed fully constructed payload.
+            thumb_art: io.BytesIO of playlist thumbnail img.
+
+        Raises:
+            None
+        """
+        # Grab the relevant thumbnail
+        img_stream = urlopen(self.pms.url(playlist.composite, True))
+        img = io.BytesIO(img_stream.read())
+
+        # Attach to discord embed
+        art_file = discord.File(img, filename="image0.png")
+        title = "Added playlist to queue"
+        descrip = f"{playlist.title}"
+
+        embed = discord.Embed(
+            title=title, description=descrip, colour=discord.Color.red()
+        )
+        embed.set_author(name="Plex")
+        embed.set_thumbnail(url="attachment://image0.png")
+        bot_log.debug("Built embed for playlist - %s", playlist.title)
+
+        return embed, art_file
 
     async def _validate(self, ctx):
         """Ensures user is in a vc
@@ -505,6 +560,47 @@ class Plex(commands.Cog):
 
         for track in album.tracks():
             await self.play_queue.put(track)
+
+    @command()
+    async def playlist(self, ctx, *args):
+        """User command to play playlist
+
+        Searchs plex db and either, initiates playback, or
+        adds to queue. Handles invalid usage from the user.
+
+        Args:
+            ctx: discord.ext.commands.Context message context from command
+            *args: Title of playlist to play
+
+        Returns:
+            None
+
+        Raises:
+            None
+        """
+        # Save the context to use with async callbacks
+        self.ctx = ctx
+        title = " ".join(args)
+
+        try:
+            playlist = self._search_playlists(title)
+        except MediaNotFoundError:
+            await ctx.send(f"Can't find playlist: {title}")
+            bot_log.debug("Failed to queue playlist, can't find - %s", title)
+            return
+
+        try:
+            await self._validate(ctx)
+        except VoiceChannelError:
+            pass
+
+        bot_log.debug("Added to queue - %s", title)
+        embed, img = self._build_embed_playlist(self, playlist)
+        await ctx.send(embed=embed, file=img)
+
+        for item in playlist.items():
+            if (item.TYPE == "track"):
+                await self.play_queue.put(item)
 
     @command()
     async def stop(self, ctx):
