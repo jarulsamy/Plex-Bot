@@ -3,6 +3,7 @@ import asyncio
 import io
 import logging
 from urllib.request import urlopen
+from urllib.request import Request
 
 import discord
 import lyricsgenius
@@ -238,9 +239,10 @@ class Plex(commands.Cog):
             return results[0]
         except IndexError:
             raise MediaNotFoundError("Album cannot be found")
-            
+
     def _search_playlists(self, title: str):
-        """Search the Plex music db for playlist
+        """
+        Search the Plex music db for playlist
 
         Args:
             title: str title of playlist to search for
@@ -251,7 +253,6 @@ class Plex(commands.Cog):
         Raises:
             MediaNotFoundError: Title of playlist can't be found in plex db
         """
-        
         try:
             return self.pms.playlist(title)
         except NotFound:
@@ -339,7 +340,8 @@ class Plex(commands.Cog):
 
     @staticmethod
     def _build_embed_track(track, type_="play"):
-        """Creates a pretty embed card for tracks
+        """
+        Creates a pretty embed card for tracks
 
         Builds a helpful status embed with the following info:
         Status, song title, album, artist and album art. All
@@ -357,7 +359,8 @@ class Plex(commands.Cog):
             ValueError: Unsupported type of embed {type_}
         """
         # Grab the relevant thumbnail
-        img_stream = urlopen(track.thumbUrl)
+        req = Request(track.thumbUrl)
+        img_stream = urlopen(req)
         img = io.BytesIO(img_stream.read())
 
         # Attach to discord embed
@@ -387,7 +390,8 @@ class Plex(commands.Cog):
 
     @staticmethod
     def _build_embed_album(album):
-        """Creates a pretty embed card for albums
+        """
+        Creates a pretty embed card for albums
 
         Builds a helpful status embed with the following info:
         album, artist, and album art. All pertitent information
@@ -404,7 +408,8 @@ class Plex(commands.Cog):
             None
         """
         # Grab the relevant thumbnail
-        img_stream = urlopen(album.thumbUrl)
+        req = Request(album.thumbUrl)
+        img_stream = urlopen(req)
         img = io.BytesIO(img_stream.read())
 
         # Attach to discord embed
@@ -423,7 +428,8 @@ class Plex(commands.Cog):
         
     @staticmethod
     def _build_embed_playlist(self, playlist):
-        """Creates a pretty embed card for playlists
+        """
+        Creates a pretty embed card for playlists
 
         Builds a helpful status embed with the following info:
         playlist art. All pertitent information
@@ -440,7 +446,8 @@ class Plex(commands.Cog):
             None
         """
         # Grab the relevant thumbnail
-        img_stream = urlopen(self.pms.url(playlist.composite, True))
+        req = Request(self.pms.url(playlist.composite, True))
+        img_stream = urlopen(req)
         img = io.BytesIO(img_stream.read())
 
         # Attach to discord embed
