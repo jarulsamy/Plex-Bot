@@ -3,7 +3,7 @@ import asyncio
 import io
 import logging
 from urllib.request import urlopen
-from urllib.request import Request
+import requests
 
 import discord
 import lyricsgenius
