@@ -44,13 +44,15 @@ Plex:
 
 
 class General(commands.Cog):
-    """General commands
+    """
+    General commands
 
     Manage general bot behavior
     """
 
     def __init__(self, bot):
-        """Initialize commands
+        """
+        Initialize commands
 
         Args:
             bot: discord.ext.command.Bot, bind for cogs
@@ -65,7 +67,8 @@ class General(commands.Cog):
 
     @command()
     async def kill(self, ctx, *args):
-        """Kill the bot
+        """
+        Kill the bot
 
         Args:
             ctx: discord.ext.commands.Context message context from command
@@ -85,7 +88,8 @@ class General(commands.Cog):
 
     @command(name="help")
     async def help(self, ctx):
-        """Prints command help
+        """
+        Prints command help
 
         Args:
             ctx: discord.ext.commands.Context message context from command
@@ -101,7 +105,8 @@ class General(commands.Cog):
 
     @command()
     async def cleanup(self, ctx, limit=250):
-        """Delete old messages from bot
+        """
+        Delete old messages from bot
 
         Args:
             ctx: discord.ext.commands.Context message context from command
@@ -151,7 +156,8 @@ class Plex(commands.Cog):
     # within the bot.
 
     def __init__(self, bot, **kwargs):
-        """Initializes Plex resources
+        """
+        Initializes Plex resources
 
         Connects to Plex library and sets up
         all asyncronous communications.
@@ -205,7 +211,8 @@ class Plex(commands.Cog):
         self.bot.loop.create_task(self._audio_player_task())
 
     def _search_tracks(self, title: str):
-        """Search the Plex music db for track
+        """
+        Search the Plex music db for track
 
         Args:
             title: str title of song to search for
@@ -223,7 +230,8 @@ class Plex(commands.Cog):
             raise MediaNotFoundError("Track cannot be found")
 
     def _search_albums(self, title: str):
-        """Search the Plex music db for album
+        """
+        Search the Plex music db for album
 
         Args:
             title: str title of album to search for
@@ -259,7 +267,8 @@ class Plex(commands.Cog):
             raise MediaNotFoundError("Playlist cannot be found")
 
     async def _play(self):
-        """Heavy lifting of playing songs
+        """
+        Heavy lifting of playing songs
 
         Grabs the appropiate streaming URL, sends the `now playing`
         message, and initiates playback in the vc.
@@ -287,7 +296,8 @@ class Plex(commands.Cog):
         self.np_message_id = await self.ctx.send(embed=embed, file=img)
 
     async def _audio_player_task(self):
-        """Coroutine to handle playback and queuing
+        """
+        Coroutine to handle playback and queuing
 
         Always-running function awaiting new songs to be added.
         Auto disconnects from VC if idle for > 15 seconds.
@@ -321,7 +331,8 @@ class Plex(commands.Cog):
             await self.np_message_id.delete()
 
     def _toggle_next(self, error=None):
-        """Callback for vc playback
+        """
+        Callback for vc playback
 
         Clears current track, then activates _audio_player_task
         to play next in queue or disconnect.
@@ -359,8 +370,7 @@ class Plex(commands.Cog):
             ValueError: Unsupported type of embed {type_}
         """
         # Grab the relevant thumbnail
-        req = Request(track.thumbUrl)
-        img_stream = urlopen(req)
+        img_stream = requests.get(track.thumbUrl, stream=True).raw
         img = io.BytesIO(img_stream.read())
 
         # Attach to discord embed
@@ -408,8 +418,7 @@ class Plex(commands.Cog):
             None
         """
         # Grab the relevant thumbnail
-        req = Request(album.thumbUrl)
-        img_stream = urlopen(req)
+        img_stream = requests.get(album.thumbUrl, stream=True).raw
         img = io.BytesIO(img_stream.read())
 
         # Attach to discord embed
@@ -425,7 +434,7 @@ class Plex(commands.Cog):
         bot_log.debug("Built embed for album - %s", album.title)
 
         return embed, art_file
-        
+
     @staticmethod
     def _build_embed_playlist(self, playlist):
         """
@@ -446,8 +455,7 @@ class Plex(commands.Cog):
             None
         """
         # Grab the relevant thumbnail
-        req = Request(self.pms.url(playlist.composite, True))
-        img_stream = urlopen(req)
+        img_stream = requests.get(self.pms.url(playlist.composite, True), stream=True).raw
         img = io.BytesIO(img_stream.read())
 
         # Attach to discord embed
@@ -465,7 +473,8 @@ class Plex(commands.Cog):
         return embed, art_file
 
     async def _validate(self, ctx):
-        """Ensures user is in a vc
+        """
+        Ensures user is in a vc
 
         Args:
             ctx: discord.ext.commands.Context message context from command
@@ -489,7 +498,8 @@ class Plex(commands.Cog):
 
     @command()
     async def play(self, ctx, *args):
-        """User command to play song
+        """
+        User command to play song
 
         Searchs plex db and either, initiates playback, or
         adds to queue. Handles invalid usage from the user.
@@ -531,7 +541,8 @@ class Plex(commands.Cog):
 
     @command()
     async def album(self, ctx, *args):
-        """User command to play song
+        """
+        User command to play song
 
         Searchs plex db and either, initiates playback, or
         adds to queue. Handles invalid usage from the user.
@@ -571,7 +582,8 @@ class Plex(commands.Cog):
 
     @command()
     async def playlist(self, ctx, *args):
-        """User command to play playlist
+        """
+        User command to play playlist
 
         Searchs plex db and either, initiates playback, or
         adds to queue. Handles invalid usage from the user.
@@ -612,7 +624,8 @@ class Plex(commands.Cog):
 
     @command()
     async def stop(self, ctx):
-        """User command to stop playback
+        """
+        User command to stop playback
 
         Stops playback and disconnects from vc.
 
@@ -635,7 +648,8 @@ class Plex(commands.Cog):
 
     @command()
     async def pause(self, ctx):
-        """User command to pause playback
+        """
+        User command to pause playback
 
         Pauses playback, but doesn't reset anything
         to allow playback resuming.
@@ -656,7 +670,8 @@ class Plex(commands.Cog):
 
     @command()
     async def resume(self, ctx):
-        """User command to resume playback
+        """
+        User command to resume playback
 
         Args:
             ctx: discord.ext.commands.Context message context from command
@@ -674,7 +689,8 @@ class Plex(commands.Cog):
 
     @command()
     async def skip(self, ctx):
-        """User command to skip song in queue
+        """
+        User command to skip song in queue
 
         Skips currently playing song. If no other songs in
         queue, stops playback, otherwise moves to next song.
@@ -696,7 +712,8 @@ class Plex(commands.Cog):
 
     @command(name="np")
     async def now_playing(self, ctx):
-        """User command to get currently playing song.
+        """
+        User command to get currently playing song.
 
         Deletes old `now playing` status message,
         Creates a new one with up to date information.
@@ -722,7 +739,8 @@ class Plex(commands.Cog):
 
     @command()
     async def clear(self, ctx):
-        """User command to clear play queue.
+        """
+        User command to clear play queue.
 
         Args:
             ctx: discord.ext.commands.Context message context from command
@@ -739,7 +757,8 @@ class Plex(commands.Cog):
 
     @command()
     async def lyrics(self, ctx):
-        """User command to get lyrics of a song.
+        """
+        User command to get lyrics of a song.
 
         Args:
             ctx: discord.ext.commands.Context message context from command
