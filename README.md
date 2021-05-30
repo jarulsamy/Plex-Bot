@@ -137,6 +137,7 @@ General:
 Plex:
     play <SONG_NAME> - Play a song from the plex server.
     album <ALBUM_NAME> - Queue an entire album to play.
+    playlist <PLAYLIST_NAME> - Queue an entire playlist to play.
     lyrics - Print the lyrics of the song (Requires Genius API)
     np - Print the current playing song.
     stop - Halt playback and leave vc.
