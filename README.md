@@ -63,6 +63,9 @@ Plex-Bot runs entirely in a Docker container. Ensure you have Docker and docker-
      token: "<PLEX_TOKEN>"
      library_name: "<LIBRARY_NAME>"
      log_level: "debug"
+
+   lyrics:
+     token: "none" # Add your token here if you enable lyrics
    ```
 
 4. Create a Discord bot application:
@@ -91,8 +94,6 @@ Plex-Bot runs entirely in a Docker container. Ensure you have Docker and docker-
 
 6. Get your Lyrics Genius token (Optional):
 
-   If you wanty to disable this feature, set token to `None` in `config/config.yaml`
-
    If you would like to enable the lyrics feature of the bot, you need to signup for a free GeniusLyrics account, [here](https://genius.com/api-clients).
 
    After you make an account:
@@ -103,7 +104,7 @@ Plex-Bot runs entirely in a Docker container. Ensure you have Docker and docker-
 
    3. Set the redirect url to: `http://localhost`
 
-   4. Copy the **Client Access Token** to `config/config.yaml`
+   4. Copy the **Client Access Token** and replace `None` with your token in `config/config.yaml`
 
 7. Customize remaining settings
 
