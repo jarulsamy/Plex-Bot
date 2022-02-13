@@ -437,7 +437,7 @@ class Plex(commands.Cog):
         return embed, art_file
 
     @staticmethod
-    def _build_embed_playlist(self, playlist):
+    def _build_embed_playlist(self, playlist, title, descrip):
         """
         Creates a pretty embed card for playlists
 
@@ -456,13 +456,14 @@ class Plex(commands.Cog):
             None
         """
         # Grab the relevant thumbnail
-        img_stream = requests.get(self.pms.url(playlist.composite, True), stream=True).raw
-        img = io.BytesIO(img_stream.read())
+        try:
+            img_stream = requests.get(self.pms.url(playlist.composite, True), stream=True).raw
+            img = io.BytesIO(img_stream.read())
+        except:
+            raise MediaNotFoundError("no image available")
 
         # Attach to discord embed
         art_file = discord.File(img, filename="image0.png")
-        title = "Added playlist to queue"
-        descrip = f"{playlist.title}"
 
         embed = discord.Embed(
             title=title, description=descrip, colour=discord.Color.red()
@@ -615,13 +616,17 @@ class Plex(commands.Cog):
         except VoiceChannelError:
             pass
 
-        bot_log.debug("Added to queue - %s", title)
-        embed, img = self._build_embed_playlist(self, playlist)
-        await ctx.send(embed=embed, file=img)
+        try:
+            embed, img = self._build_embed_playlist(self, playlist, "Added playlist to queue", playlist.title)
+            await ctx.send(embed=embed, file=img)
 
-        for item in playlist.items():
-            if (item.TYPE == "track"):
-                await self.play_queue.put(item)
+            for item in playlist.items():
+                if (item.TYPE == "track"):
+                    await self.play_queue.put(item)
+            bot_log.debug("Added to queue - %s", title)
+        except MediaNotFoundError:
+            await ctx.send(message="Playlist "+title+" seems to be empty!")
+            bot_log.debug("Playlist empty - %s", title)
 
     @command()
     async def stop(self, ctx):
