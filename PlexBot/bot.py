@@ -36,6 +36,7 @@ Plex:
     stop - Halt playback and leave vc.
     pause - Pause playback.
     resume - Resume playback.
+    skip - Skip the current song.
     clear - Clear play queue.
 
 [] - Optional args.
