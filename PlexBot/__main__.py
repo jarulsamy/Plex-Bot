@@ -20,8 +20,11 @@ BASE_URL = config["plex"]["base_url"]
 PLEX_TOKEN = config["plex"]["token"]
 LIBRARY_NAME = config["plex"]["library_name"]
 
-LYRICS_TOKEN = config["lyrics"]["token"]
-
+if config["lyrics"]:
+    LYRICS_TOKEN = config["lyrics"]["token"]
+else:
+    LYRICS_TOKEN = None
+    
 # Set appropiate log level
 root_log = logging.getLogger()
 plex_log = logging.getLogger("Plex")

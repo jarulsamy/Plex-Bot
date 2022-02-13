@@ -56,7 +56,7 @@ def load_config(filename: str) -> Dict[str, str]:
     config["plex"]["log_level"] = levels[config["plex"]["log_level"].upper()]
     config["discord"]["log_level"] = levels[config["discord"]["log_level"].upper()]
 
-    if config["lyrics"]["token"].lower() == "none":
-        config["lyrics"]["token"] = None
+    if config["lyrics"] and config["lyrics"]["token"].lower() == "none":
+        config["lyrics"] = None
 
     return config
