@@ -11,7 +11,11 @@ from .bot import General
 from .bot import Plex
 
 # Load config from file
-config = load_config("config.yaml")
+configdir = "config"
+from os import geteuid
+if geteuid() == 0:
+    configdir = "/config"
+config = load_config(configdir,"config.yaml")
 
 BOT_PREFIX = config["discord"]["prefix"]
 TOKEN = config["discord"]["token"]
