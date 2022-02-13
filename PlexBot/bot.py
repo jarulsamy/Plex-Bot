@@ -6,7 +6,6 @@ from urllib.request import urlopen
 import requests
 
 import discord
-import lyricsgenius
 from async_timeout import timeout
 from discord import FFmpegPCMAudio
 from discord.ext import commands
@@ -182,6 +181,7 @@ class Plex(commands.Cog):
         self.bot_prefix = bot.command_prefix
 
         if kwargs["lyrics_token"]:
+            import lyricsgenius
             self.genius = lyricsgenius.Genius(kwargs["lyrics_token"])
         else:
             plex_log.warning("No lyrics token specified, lyrics disabled")
