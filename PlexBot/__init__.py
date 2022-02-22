@@ -1,8 +1,6 @@
 """
 Plex music bot for discord.
 
-Do not import this module, it is intended to be
-used exclusively within a docker environment.
 """
 import logging
 import sys
@@ -19,7 +17,7 @@ plex_log = logging.getLogger("Plex")
 bot_log = logging.getLogger("Bot")
 
 
-def load_config(filename: str) -> Dict[str, str]:
+def load_config(basedir: str,filename: str) -> Dict[str, str]:
     """Loads config from yaml file
 
     Grabs key/value config pairs from a file.
@@ -35,12 +33,12 @@ def load_config(filename: str) -> Dict[str, str]:
     """
     # All config files should be in /config
     # for docker deployment.
-    filename = Path("/config", filename)
+    filename = Path(basedir, filename)
     try:
         with open(filename, "r") as config_file:
             config = yaml.safe_load(config_file)
     except FileNotFoundError:
-        root_log.fatal("Configuration file not found.")
+        root_log.fatal("Configuration file not found at '"+str(filename)+"'.")
         sys.exit(-1)
 
     # Convert str level type to logging constant
@@ -56,7 +54,7 @@ def load_config(filename: str) -> Dict[str, str]:
     config["plex"]["log_level"] = levels[config["plex"]["log_level"].upper()]
     config["discord"]["log_level"] = levels[config["discord"]["log_level"].upper()]
 
-    if config["lyrics"]["token"].lower() == "none":
-        config["lyrics"]["token"] = None
+    if config["lyrics"] and config["lyrics"]["token"].lower() == "none":
+        config["lyrics"] = None
 
     return config

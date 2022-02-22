@@ -6,7 +6,6 @@ from urllib.request import urlopen
 import requests
 
 import discord
-import lyricsgenius
 from async_timeout import timeout
 from discord import FFmpegPCMAudio
 from discord.ext import commands
@@ -32,11 +31,13 @@ Plex:
     play <SONG_NAME> - Play a song from the plex server.
     album <ALBUM_NAME> - Queue an entire album to play.
     playlist <PLAYLIST_NAME> - Queue an entire playlist to play.
+    show_playlists <ARG> <ARG> - Query for playlists with a name matching any of the arguments.
     lyrics - Print the lyrics of the song (Requires Genius API)
     np - Print the current playing song.
     stop - Halt playback and leave vc.
     pause - Pause playback.
     resume - Resume playback.
+    skip - Skip the current song.
     clear - Clear play queue.
 
 [] - Optional args.
@@ -182,6 +183,7 @@ class Plex(commands.Cog):
         self.bot_prefix = bot.command_prefix
 
         if kwargs["lyrics_token"]:
+            import lyricsgenius
             self.genius = lyricsgenius.Genius(kwargs["lyrics_token"])
         else:
             plex_log.warning("No lyrics token specified, lyrics disabled")
@@ -265,6 +267,15 @@ class Plex(commands.Cog):
             return self.pms.playlist(title)
         except NotFound:
             raise MediaNotFoundError("Playlist cannot be found")
+
+    def _get_playlists(self):
+        """
+        Search the Plex music db for playlist
+
+        Returns:
+            List of plexapi.playlist
+        """
+        return self.pms.playlists()
 
     async def _play(self):
         """
@@ -436,7 +447,7 @@ class Plex(commands.Cog):
         return embed, art_file
 
     @staticmethod
-    def _build_embed_playlist(self, playlist):
+    def _build_embed_playlist(self, playlist, title, descrip):
         """
         Creates a pretty embed card for playlists
 
@@ -455,13 +466,14 @@ class Plex(commands.Cog):
             None
         """
         # Grab the relevant thumbnail
-        img_stream = requests.get(self.pms.url(playlist.composite, True), stream=True).raw
-        img = io.BytesIO(img_stream.read())
+        try:
+            img_stream = requests.get(self.pms.url(playlist.composite, True), stream=True).raw
+            img = io.BytesIO(img_stream.read())
+        except:
+            raise MediaNotFoundError("no image available")
 
         # Attach to discord embed
         art_file = discord.File(img, filename="image0.png")
-        title = "Added playlist to queue"
-        descrip = f"{playlist.title}"
 
         embed = discord.Embed(
             title=title, description=descrip, colour=discord.Color.red()
@@ -614,13 +626,52 @@ class Plex(commands.Cog):
         except VoiceChannelError:
             pass
 
-        bot_log.debug("Added to queue - %s", title)
-        embed, img = self._build_embed_playlist(self, playlist)
-        await ctx.send(embed=embed, file=img)
+        try:
+            embed, img = self._build_embed_playlist(self, playlist, "Added playlist to queue", playlist.title)
+            await ctx.send(embed=embed, file=img)
 
-        for item in playlist.items():
-            if (item.TYPE == "track"):
-                await self.play_queue.put(item)
+            for item in playlist.items():
+                if (item.TYPE == "track"):
+                    await self.play_queue.put(item)
+            bot_log.debug("Added to queue - %s", title)
+        except MediaNotFoundError:
+            await ctx.send(message="Playlist "+title+" seems to be empty!")
+            bot_log.debug("Playlist empty - %s", title)
+    @command()
+    async def show_playlists(self, ctx, *args):
+        """
+        User command to show playlists
+
+        Searchs plex db and shows playlists matching.
+
+        Args:
+            ctx: discord.ext.commands.Context message context from command
+            *args: String filter for playlist names
+
+        Returns:
+            None
+
+        Raises:
+            None
+        """
+        # Save the context to use with async callbacks
+        self.ctx = ctx
+
+        playlists = self._get_playlists()
+
+        try:
+            await self._validate(ctx)
+        except VoiceChannelError:
+            pass
+
+        for playlist in playlists:
+            if args and not any(arg in playlist.title for arg in args):
+                continue
+            from datetime import timedelta
+            if playlist.duration:
+                seconds = playlist.duration / 1000
+                embed, img = self._build_embed_playlist(self, playlist, playlist.title, "{:0>8}".format(str(timedelta(seconds=seconds))))
+                await ctx.send(embed=embed, file=img)
 
     @command()
     async def stop(self, ctx):
