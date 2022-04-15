@@ -331,15 +331,15 @@ class Plex(commands.Cog):
                 bot_log.debug("failed to pop queue")
                 
             if not self.current_track and self.loop_queue:
-                bot_log.debug("swapping loop queue and play queue")                                    
-                try:                
-                    self.current_track = await self.loop_queue.get()
-                except CancelledError:
-                    bot_log.debug("failed to pop queue")                    
-                self.play_queue = self.loop_queue
-                self.loop_queue = asyncio.Queue()
+                bot_log.debug("swapping loop queue and play queue")
+                for item in self.loop_queue:
+                    await self.play_queue.put(item)
 
-            
+                try:
+                    self.current_track = await self.play_queue.get()
+                except CancelledError:
+                    bot_log.debug("failed to pop queue")
+                    
     async def _audio_player_task(self):
         """
         Coroutine to handle playback and queuing
@@ -393,9 +393,6 @@ class Plex(commands.Cog):
         Raises:
             None
         """
-        if self.current_track and self.loop_queue:
-            bot_log.debug("pushing into loop queue: "+str(self.current_track))
-            self.bot.loop.call_soon_threadsafe(self.loop_queue.put,self.current_track)
         self.current_track = None
         self.bot.loop.call_soon_threadsafe(self.play_next_event.set)
 
@@ -810,7 +807,12 @@ class Plex(commands.Cog):
             None
         """
         bot_log.debug("Looping current queue")
-        self.loop_queue = asyncio.Queue()
+        if self.current_track:
+            self.loop_queue = [ self.current_track ]
+        else:
+            self.loop_queue = []
+        for item in self.play_queue._queue:
+            self.loop_queue.append(item)
 
     @command()
     async def unloop(self, ctx):
