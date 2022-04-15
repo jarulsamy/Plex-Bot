@@ -34,10 +34,11 @@ Plex:
     show_playlists <ARG> <ARG> - Query for playlists with a name matching any of the arguments.
     lyrics - Print the lyrics of the song (Requires Genius API)
     np - Print the current playing song.
+    q - Print the current queue (This can take very long!)
     stop - Halt playback and leave vc.
     pause - Pause playback.
     resume - Resume playback.
-    skip - Skip the current song.
+    skip - Skip the current song. Give a number as argument to skip more than 1.
     clear - Clear play queue.
 
 [] - Optional args.
@@ -203,6 +204,7 @@ class Plex(commands.Cog):
         self.voice_channel = None
         self.current_track = None
         self.np_message_id = None
+        self.show_queue_message_ids = []        
         self.ctx = None
 
         # Initialize events
@@ -296,8 +298,8 @@ class Plex(commands.Cog):
         track_url = self.current_track.getStreamURL()
         audio_stream = FFmpegPCMAudio(track_url)
 
-        while self.voice_channel.is_playing():
-            asyncio.sleep(2)
+        while self.voice_channel and self.voice_channel.is_playing():
+            await asyncio.sleep(2)
 
         self.voice_channel.play(audio_stream, after=self._toggle_next)
 
@@ -339,7 +341,8 @@ class Plex(commands.Cog):
 
             await self._play()
             await self.play_next_event.wait()
-            await self.np_message_id.delete()
+            if self.np_message_id:
+                await self.np_message_id.delete()
 
     def _toggle_next(self, error=None):
         """
@@ -391,6 +394,8 @@ class Plex(commands.Cog):
             title = f"Now Playing - {track.title}"
         elif type_ == "queue":
             title = f"Added to queue - {track.title}"
+        elif type_ == "queued":
+            title = f"Next in line - {track.title}"
         else:
             raise ValueError(f"Unsupported type of embed {type_}")
 
@@ -739,7 +744,7 @@ class Plex(commands.Cog):
             await ctx.send(":play_pause: Resumed")
 
     @command()
-    async def skip(self, ctx):
+    async def skip(self, ctx, *args):
         """
         User command to skip song in queue
 
@@ -755,10 +760,16 @@ class Plex(commands.Cog):
         Raises:
             None
         """
-        bot_log.debug("Skip")
+        n = 1
+        if args:
+            n = int(args[0])
+        bot_log.debug("Skipping "+str(n))
         if self.voice_channel:
             self.voice_channel.stop()
             bot_log.debug("Skipped")
+            if n>1:
+                for i in range(n-1):
+                    await self.play_queue.get()
             self._toggle_next()
 
     @command(name="np")
@@ -779,14 +790,50 @@ class Plex(commands.Cog):
             None
         """
         if self.current_track:
-            embed, img = self._build_embed_track(self.current_track)
+            embed, img = self._build_embed_track(self.current_track,type_="play")
             bot_log.debug("Now playing")
             if self.np_message_id:
-                await self.np_message_id.delete()
-                bot_log.debug("Deleted old np status")
+                try:
+                    await self.np_message_id.delete()
+                    bot_log.debug("Deleted old np status")
+                except discord.errors.NotFound:
+                    pass
 
             bot_log.debug("Created np status")
             self.np_message_id = await ctx.send(embed=embed, file=img)
+
+    @command(name="q")
+    async def show_queue(self, ctx):
+        """
+        User command to print the current queue
+
+        Deletes old `now playing` status message,
+        Creates a new one with up to date information.
+
+        Args:
+            ctx: discord.ext.commands.Context message context from command
+
+        Returns:
+            None
+
+        Raises:
+            None
+        """
+        bot_log.debug("Deleted old queue messages")
+        for msg in self.show_queue_message_ids:
+            await msg.delete()
+
+        # need to do this in order to avoid errors when queue is modified during inspection
+        elems = []
+        for track in self.play_queue._queue:
+            elems.append(track)
+
+        for track in elems:
+            embed, img = self._build_embed_track(track,type_="queued")
+            bot_log.debug("Show queue")
+
+            bot_log.debug("Created queue message")
+            self.show_queue_message_ids.append(await ctx.send(embed=embed, file=img))
 
     @command()
     async def clear(self, ctx):
