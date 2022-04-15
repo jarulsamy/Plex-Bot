@@ -318,18 +318,22 @@ class Plex(commands.Cog):
             self.np_message_id = await self.ctx.send(embed=embed, file=img)
 
     async def _play_next(self):
+        try:
+            from asyncio.exceptions import CancelledError
+        except ImportError:
+            from concurrent.futures._base import CancelledError
         if self.is_looping:
             self.current_track = self.is_looping
         else:
             try:
                 self.current_track = await self.play_queue.get()
-            except asyncio.exceptions.CancelledError:
+            except CancelledError:
                 bot_log.debug("failed to pop queue")
                 
             if not self.current_track and self.loop_queue:
                 try:                
                     self.current_track = await self.loop_queue.get()
-                except asyncio.exceptions.CancelledError:
+                except CancelledError:
                     bot_log.debug("failed to pop queue")                    
                 self.play_queue = self.loop_queue
                 self.loop_queue = asyncio.Queue()
