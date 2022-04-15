@@ -399,11 +399,15 @@ class Plex(commands.Cog):
             ValueError: Unsupported type of embed {type_}
         """
         # Grab the relevant thumbnail
-        img_stream = requests.get(track.thumbUrl, stream=True).raw
-        img = io.BytesIO(img_stream.read())
+        if track.thumbUrl:
+            img_stream = requests.get(track.thumbUrl, stream=True).raw
+            img = io.BytesIO(img_stream.read())
 
-        # Attach to discord embed
-        art_file = discord.File(img, filename="image0.png")
+            # Attach to discord embed
+            art_file = discord.File(img, filename="image0.png")
+        else:
+            art_file = None
+            
         # Get appropiate status message
         if type_ == "play":
             title = f"Now Playing - {track.title}"
