@@ -619,6 +619,37 @@ class Plex(commands.Cog):
         for track in album.tracks():
             await self.play_queue.put(track)
 
+    async def play_playlist(self, title, shuffle=False):
+        try:
+            playlist = self._search_playlists(title)
+        except MediaNotFoundError:
+            await self.ctx.send(f"Can't find playlist: {title}")
+            bot_log.debug("Failed to queue playlist, can't find - %s", title)
+            return
+
+        try:
+            await self._validate(self.ctx)
+        except VoiceChannelError:
+            pass
+
+        try:
+            embed, img = self._build_embed_playlist(self, playlist, "Added playlist to queue", playlist.title)
+            await self.ctx.send(embed=embed, file=img)
+
+            items = [ item for item in playlist.items() if item.TYPE == "track" ]
+            if shuffle:
+                from random import shuffle
+                shuffle(items)
+
+            for item in items:
+                await self.play_queue.put(item)
+                
+            bot_log.debug("Added to queue - %s", title)
+            
+        except MediaNotFoundError:
+            await self.ctx.send(message="Playlist "+title+" seems to be empty!")
+            bot_log.debug("Playlist empty - %s", title)
+            
     @command()
     async def playlist(self, ctx, *args):
         """
@@ -640,30 +671,32 @@ class Plex(commands.Cog):
         # Save the context to use with async callbacks
         self.ctx = ctx
         title = " ".join(args)
+        await self.play_playlist(title)
 
-        try:
-            playlist = self._search_playlists(title)
-        except MediaNotFoundError:
-            await ctx.send(f"Can't find playlist: {title}")
-            bot_log.debug("Failed to queue playlist, can't find - %s", title)
-            return
+    @command()
+    async def playlist_shuffle(self, ctx, *args):
+        """
+        User command to play playlist in shuffle mode
 
-        try:
-            await self._validate(ctx)
-        except VoiceChannelError:
-            pass
+        Searchs plex db and either, initiates playback, or
+        adds to queue. Handles invalid usage from the user.
 
-        try:
-            embed, img = self._build_embed_playlist(self, playlist, "Added playlist to queue", playlist.title)
-            await ctx.send(embed=embed, file=img)
+        Args:
+            ctx: discord.ext.commands.Context message context from command
+            *args: Title of playlist to play
 
-            for item in playlist.items():
-                if (item.TYPE == "track"):
-                    await self.play_queue.put(item)
-            bot_log.debug("Added to queue - %s", title)
-        except MediaNotFoundError:
-            await ctx.send(message="Playlist "+title+" seems to be empty!")
-            bot_log.debug("Playlist empty - %s", title)
+        Returns:
+            None
+
+        Raises:
+            None
+        """
+        # Save the context to use with async callbacks
+        self.ctx = ctx
+        title = " ".join(args)
+        await self.play_playlist(title,shuffle=True)        
+
+            
     @command()
     async def show_playlists(self, ctx, *args):
         """
