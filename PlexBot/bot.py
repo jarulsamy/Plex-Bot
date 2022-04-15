@@ -36,6 +36,8 @@ Plex:
     np - Print the current playing song.
     q - Print the current queue (This can take very long!)
     stop - Halt playback and leave vc.
+    loop - Loop the current song.
+    unloop - Disable looping.
     pause - Pause playback.
     resume - Resume playback.
     skip - Skip the current song. Give a number as argument to skip more than 1.
