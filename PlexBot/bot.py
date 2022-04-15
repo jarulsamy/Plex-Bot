@@ -203,6 +203,7 @@ class Plex(commands.Cog):
         # Initialize necessary vars
         self.voice_channel = None
         self.current_track = None
+        self.is_looping = False
         self.np_message_id = None
         self.show_queue_message_ids = []        
         self.ctx = None
@@ -312,10 +313,13 @@ class Plex(commands.Cog):
             self.np_message_id = await self.ctx.send(embed=embed, file=img)
 
     async def _play_next(self):
-        try:
-            self.current_track = await self.play_queue.get()
-        except asyncio.exceptions.CancelledError:
-            bot_log.debug("failed to pop queue")
+        if self.is_looping:
+            self.current_track = self.is_looping
+        else:
+            try:
+                self.current_track = await self.play_queue.get()
+            except asyncio.exceptions.CancelledError:
+                bot_log.debug("failed to pop queue")
 
             
     async def _audio_player_task(self):
@@ -715,6 +719,41 @@ class Plex(commands.Cog):
             self.ctx = None
             bot_log.debug("Stopped")
             await ctx.send(":stop_button: Stopped")
+
+    @command()
+    async def loop(self, ctx):
+        """
+        User command to activate looping the current track
+
+        Args:
+            ctx: discord.ext.commands.Context message context from command
+
+        Returns:
+            None
+
+        Raises:
+            None
+        """
+        bot_log.debug("Looping "+str(self.current_track))        
+        self.is_looping = self.current_track
+
+    @command()
+    async def unloop(self, ctx):
+        """
+        User command to deactivate looping the current track
+
+        Args:
+            ctx: discord.ext.commands.Context message context from command
+
+        Returns:
+            None
+
+        Raises:
+            None
+        """
+        bot_log.debug("Unlooping")                
+        self.is_looping = False        
+            
 
     @command()
     async def pause(self, ctx):
