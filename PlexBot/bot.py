@@ -210,7 +210,7 @@ class Plex(commands.Cog):
         self.is_looping = False
         self.loop_queue = None
         self.np_message_id = None
-        self.show_queue_message_ids = []        
+        self.show_queue_message_ids = []
         self.ctx = None
 
         # Initialize events
@@ -307,13 +307,13 @@ class Plex(commands.Cog):
         while self.voice_channel and self.voice_channel.is_playing():
             bot_log.debug("waiting for track to finish")
             await asyncio.sleep(2)
-        bot_log.debug("track finished")            
+        bot_log.debug("track finished")
 
         if self.voice_channel:
             self.voice_channel.play(audio_stream, after=self._toggle_next)
-    
+
             plex_log.debug("%s - URL: %s", self.current_track, track_url)
-    
+
             embed, img = self._build_embed_track(self.current_track)
             self.np_message_id = await self.ctx.send(embed=embed, file=img)
 
@@ -329,7 +329,7 @@ class Plex(commands.Cog):
                 self.current_track = await self.play_queue.get()
             except CancelledError:
                 bot_log.debug("failed to pop queue")
-                
+
             if not self.current_track and self.loop_queue:
                 bot_log.debug("swapping loop queue and play queue")
                 for item in self.loop_queue:
@@ -339,7 +339,7 @@ class Plex(commands.Cog):
                     self.current_track = await self.play_queue.get()
                 except CancelledError:
                     bot_log.debug("failed to pop queue")
-                    
+
     async def _audio_player_task(self):
         """
         Coroutine to handle playback and queuing
@@ -425,7 +425,7 @@ class Plex(commands.Cog):
             art_file = discord.File(img, filename="image0.png")
         else:
             art_file = None
-            
+
         # Get appropiate status message
         if type_ == "play":
             title = f"Now Playing - {track.title}"
@@ -551,7 +551,7 @@ class Plex(commands.Cog):
                 self.voice_channel = await ctx.author.voice.channel.connect()
                 bot_log.debug("Connected to vc.")
             except asyncio.exceptions.TimeoutError:
-                bot_log.debug("Cannot connect to vc - timeout")                
+                bot_log.debug("Cannot connect to vc - timeout")
 
     @command()
     async def play(self, ctx, *args):
@@ -661,13 +661,13 @@ class Plex(commands.Cog):
 
             for item in items:
                 await self.play_queue.put(item)
-                
+
             bot_log.debug("Added to queue - %s", title)
-            
+
         except MediaNotFoundError:
             await self.ctx.send(message="Playlist "+title+" seems to be empty!")
             bot_log.debug("Playlist empty - %s", title)
-            
+
     @command()
     async def playlist(self, ctx, *args):
         """
@@ -712,9 +712,9 @@ class Plex(commands.Cog):
         # Save the context to use with async callbacks
         self.ctx = ctx
         title = " ".join(args)
-        await self.play_playlist(title,shuffle=True)        
+        await self.play_playlist(title,shuffle=True)
 
-            
+
     @command()
     async def show_playlists(self, ctx, *args):
         """
@@ -789,7 +789,7 @@ class Plex(commands.Cog):
         Raises:
             None
         """
-        bot_log.debug("Looping "+str(self.current_track))        
+        bot_log.debug("Looping "+str(self.current_track))
         self.is_looping = self.current_track
 
     @command()
@@ -828,7 +828,7 @@ class Plex(commands.Cog):
         Raises:
             None
         """
-        bot_log.debug("Looping current queue")        
+        bot_log.debug("Looping current queue")
         self.is_looping = False
 
     @command()
@@ -847,7 +847,7 @@ class Plex(commands.Cog):
         """
         bot_log.debug("Unlooping")
         self.loop_queue = None
-            
+
 
     @command()
     async def pause(self, ctx):
